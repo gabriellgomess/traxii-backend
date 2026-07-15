@@ -7,17 +7,29 @@ No console do Easypanel (serviço backend), rodar **uma vez**:
 ```bash
 php artisan migrate --force
 php artisan db:seed --force
-php artisan storage:link
 ```
+
+> `storage:link` roda automaticamente no boot do container (entrypoint.sh).
 
 - `migrate` cria as tabelas `companies` e as colunas `company_id`/`role` em `users`.
 - `db:seed` cria o super admin `admin@traxiinvest.com` (senha padrão `password`;
   defina `SEED_ADMIN_PASSWORD` na aba Environment antes de rodar para usar outra)
   e duas empresas de exemplo. O seeder é idempotente.
-- `storage:link` é necessário para servir os logotipos enviados
-  (`/storage/logos/...`). Confirme que `APP_URL` na aba Environment aponta para
+- Confirme que `APP_URL` na aba Environment aponta para
   `https://api-traxii-backend.rmmcki.easypanel.host` — o link público do logo usa
   essa URL.
+
+## Volume persistente (Easypanel → Armazenamento)
+
+Os logotipos são gravados em `storage/app/public`. Para sobreviverem a
+redeploys, crie uma **Montagem de Volume** no serviço backend:
+
+- Nome: `storage-public`
+- Caminho de montagem: `/var/www/html/storage/app/public`
+
+O entrypoint recria o symlink `public/storage` e ajusta permissões
+(`www-data`) a cada boot. Não monte o volume em `/var/www/html/storage`
+inteiro (cobriria `framework/` e quebraria o boot).
 
 ## Endpoints desta fase
 

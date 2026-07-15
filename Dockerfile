@@ -19,6 +19,9 @@ RUN apk add --no-cache \
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) pdo_mysql bcmath zip opcache gd
 
+# Limites de upload do PHP (alinhados ao client_max_body_size do Nginx)
+RUN printf "upload_max_filesize=10M\npost_max_size=12M\n" > /usr/local/etc/php/conf.d/uploads.ini
+
 # Copiar Composer da imagem oficial
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
