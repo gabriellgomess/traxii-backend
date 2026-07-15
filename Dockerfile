@@ -46,8 +46,9 @@ RUN sed -i 's/user nginx;/user www-data;/g' /etc/nginx/nginx.conf
 # Copiar a configuração personalizada do Nginx
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 
-# Configurar permissões para o Laravel
-RUN chown -R www-data:www-data /var/www/html \
+# Configurar permissões para o Laravel e para o Nginx rodando como www-data
+# (sem isso o Nginx não grava o corpo de uploads > buffer em /var/lib/nginx/tmp → 500)
+RUN chown -R www-data:www-data /var/www/html /var/lib/nginx /var/log/nginx \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Configurar o script de entrada (entrypoint)
