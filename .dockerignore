@@ -2,7 +2,6 @@
 .github
 .dockerignore
 Dockerfile
-docker/
 vendor/
 node_modules/
 .env
