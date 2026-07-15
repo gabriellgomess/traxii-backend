@@ -1,58 +1,98 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Traxiinvest Backend API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Este é o repositório do backend do projeto **Traxiinvest**, desenvolvido em **Laravel 13** com autenticação via **Laravel Sanctum**. O ambiente de produção é containerizado com Docker e hospedado na VPS Hostinger sob o gerenciamento do **Easypanel**.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🛠️ Stack Tecnológica
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+* **Framework:** Laravel 13
+* **Versão PHP:** 8.4
+* **Banco de Dados:** MySQL
+* **Autenticação:** Laravel Sanctum (Tokens de API)
+* **Web Server (Produção):** Nginx + PHP-FPM
+* **Containerização:** Docker (Alpine Linux)
+* **Orquestração/Painel:** Easypanel (VPS Hostinger)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 📂 Estrutura de Containerização (Docker)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+O projeto está configurado para gerar um container único de produção que roda tanto o PHP-FPM quanto o Nginx, simplificando o deploy no Easypanel. Os arquivos chave são:
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+* **`Dockerfile`:** Configuração multi-stage. Utiliza a imagem oficial do `php:8.4-fpm-alpine`, instala extensões essenciais (`pdo_mysql`, `bcmath`, `zip`, `opcache`, `gd`), baixa o Composer e instala as dependências. Nginx e PHP-FPM rodam sob o mesmo usuário (`www-data`) para evitar conflitos de permissão na pasta `storage`.
+* **`docker/nginx.conf`:** Configuração do servidor Nginx apontando para a pasta pública do Laravel (`/public`) e direcionando requisições PHP para o PHP-FPM local (`127.0.0.1:9000`).
+* **`docker/entrypoint.sh`:** Script executado na inicialização do container. Ele limpa e gera os caches do Laravel (`config:cache`, `route:cache`, `view:cache`) e inicia os serviços em background/foreground.
+* **`.dockerignore`:** Impede que dependências locais (`vendor`, `node_modules`), arquivos confidenciais (`.env`) ou bancos de dados locais sejam enviados ao build da VPS.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+---
 
-## Agentic Development
+## 🚀 Como Rodar Localmente (Desenvolvimento)
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### Pré-requisitos
+* PHP >= 8.3
+* Composer
+* MySQL ou SQLite local
 
-```bash
-composer require laravel/boost --dev
+### Passo a Passo
 
-php artisan boost:install
-```
+1. **Clonar o Repositório do Backend**
+2. **Instalar dependências do PHP:**
+   ```bash
+   composer install
+   ```
+3. **Configurar o Ambiente:**
+   Copie o arquivo `.env.example` para `.env` e configure as credenciais do seu banco de dados local.
+   ```bash
+   cp .env.example .env
+   ```
+4. **Gerar a chave da aplicação:**
+   ```bash
+   php artisan key:generate
+   ```
+5. **Rodar as migrations (e seeders se necessário):**
+   ```bash
+   php artisan migrate
+   ```
+6. **Iniciar o Servidor de Desenvolvimento:**
+   ```bash
+   php artisan serve
+   ```
+   A API estará acessível em `http://localhost:8000`.
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+## 🔑 Autenticação (Laravel Sanctum)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+A API utiliza o Sanctum para emissão e validação de tokens de segurança.
+* O Model `User` está configurado com a trait `Laravel\Sanctum\HasApiTokens`.
+* As rotas públicas e privadas da API devem ser configuradas dentro de `routes/api.php`.
+* Para proteger uma rota com autenticação via Token, utilize o middleware `auth:sanctum`:
+  ```php
+  Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+      return $request->user();
+  });
+  ```
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## 🌐 Fluxo de Deploy no Easypanel (Hostinger)
 
-## Security Vulnerabilities
+O deploy é automatizado diretamente através do Git.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+1. **Configuração de Origem:** No painel do Easypanel, o serviço de App está conectado a este repositório Git (branch `main`). O diretório raiz configurado é `/` (raiz do repositório).
+2. **Método de Build:** Está configurado para usar o **Dockerfile**. O Easypanel detecta automaticamente o `Dockerfile` na raiz do projeto e executa o build na VPS.
+3. **Banco de Dados:** O Laravel se conecta ao serviço MySQL criado no Easypanel através da rede interna do Docker.
+4. **Variáveis de Ambiente:** São inseridas diretamente na aba *Environment* no Easypanel. O host do banco de dados aponta para o endereço interno:
+   ```env
+   DB_HOST=api-traxii_db-traxii
+   DB_PORT=3306
+   ```
 
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Executar comandos em Produção (Migrations, etc.)
+Caso precise rodar migrations em produção após atualizar tabelas:
+1. Acesse o Easypanel -> Serviço `backend` -> Aba **Console**.
+2. Rode o comando:
+   ```bash
+   php artisan migrate --force
+   ```
