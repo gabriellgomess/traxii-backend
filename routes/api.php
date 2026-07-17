@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountOpeningController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompanyController;
 use Illuminate\Support\Facades\Route;
@@ -15,6 +16,23 @@ Route::post('/auth/login', [AuthController::class, 'login'])
 
 Route::get('/public/theme', [CompanyController::class, 'publicTheme'])
     ->middleware('throttle:60,1');
+
+// Abertura de conta PF (wizard do whitelabel) — rate limiting agressivo na
+// criação (anti-abuso) e token de retomada obrigatório nas demais rotas
+Route::prefix('public/account-openings')->group(function () {
+    Route::post('/', [AccountOpeningController::class, 'store'])
+        ->middleware('throttle:6,1');
+
+    Route::middleware(['opening.token', 'throttle:30,1'])->group(function () {
+        Route::get('/{opening:uuid}', [AccountOpeningController::class, 'show']);
+        Route::put('/{opening:uuid}/personal-data', [AccountOpeningController::class, 'updatePersonalData']);
+        Route::put('/{opening:uuid}/address', [AccountOpeningController::class, 'updateAddress']);
+        Route::post('/{opening:uuid}/documents', [AccountOpeningController::class, 'storeDocuments']);
+        Route::post('/{opening:uuid}/liveness', [AccountOpeningController::class, 'completeLiveness']);
+        Route::post('/{opening:uuid}/selfie', [AccountOpeningController::class, 'storeSelfie']);
+        Route::post('/{opening:uuid}/submit', [AccountOpeningController::class, 'submit']);
+    });
+});
 
 /*
 |--------------------------------------------------------------------------
