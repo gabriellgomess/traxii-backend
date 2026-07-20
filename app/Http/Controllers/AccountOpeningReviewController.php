@@ -229,6 +229,48 @@ class AccountOpeningReviewController extends Controller
         ]);
     }
 
+    /** POST /api/account-openings/{uuid}/block — bloqueia a conta (reversível) */
+    public function block(Request $request, AccountOpening $opening): JsonResponse
+    {
+        $this->authorizeOpening($request, $opening);
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:1000']]);
+
+        return response()->json([
+            'data' => $this->service->block($opening, $request->user(), $data['reason'] ?? null, $request->ip()),
+        ]);
+    }
+
+    /** POST /api/account-openings/{uuid}/unblock */
+    public function unblock(Request $request, AccountOpening $opening): JsonResponse
+    {
+        $this->authorizeOpening($request, $opening);
+
+        return response()->json([
+            'data' => $this->service->unblock($opening, $request->user(), $request->ip()),
+        ]);
+    }
+
+    /** POST /api/account-openings/{uuid}/deactivate — desativa a conta */
+    public function deactivate(Request $request, AccountOpening $opening): JsonResponse
+    {
+        $this->authorizeOpening($request, $opening);
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:1000']]);
+
+        return response()->json([
+            'data' => $this->service->deactivate($opening, $request->user(), $data['reason'] ?? null, $request->ip()),
+        ]);
+    }
+
+    /** POST /api/account-openings/{uuid}/reactivate */
+    public function reactivate(Request $request, AccountOpening $opening): JsonResponse
+    {
+        $this->authorizeOpening($request, $opening);
+
+        return response()->json([
+            'data' => $this->service->reactivate($opening, $request->user(), $request->ip()),
+        ]);
+    }
+
     /** DELETE /api/account-openings/{uuid} — exclusão definitiva */
     public function destroy(Request $request, AccountOpening $opening): JsonResponse
     {

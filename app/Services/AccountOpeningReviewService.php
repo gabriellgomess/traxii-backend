@@ -148,15 +148,67 @@ class AccountOpeningReviewService
         return $opening;
     }
 
+    /* -----------------------------------------------------------------
+     | Estados de conta (pós-aprovação): bloquear / desativar
+     |------------------------------------------------------------------
+     */
+
+    public function block(AccountOpening $opening, User $reviewer, ?string $reason, ?string $ip): AccountOpening
+    {
+        return $this->transition(
+            $opening,
+            $reviewer,
+            from: [AccountOpening::STATUS_APPROVED],
+            to: AccountOpening::STATUS_BLOCKED,
+            ip: $ip,
+            eventPayload: $reason ? ['reason' => $reason] : [],
+        );
+    }
+
+    public function unblock(AccountOpening $opening, User $reviewer, ?string $ip): AccountOpening
+    {
+        return $this->transition(
+            $opening,
+            $reviewer,
+            from: [AccountOpening::STATUS_BLOCKED],
+            to: AccountOpening::STATUS_APPROVED,
+            ip: $ip,
+        );
+    }
+
+    public function deactivate(AccountOpening $opening, User $reviewer, ?string $reason, ?string $ip): AccountOpening
+    {
+        return $this->transition(
+            $opening,
+            $reviewer,
+            from: [AccountOpening::STATUS_APPROVED, AccountOpening::STATUS_BLOCKED],
+            to: AccountOpening::STATUS_DEACTIVATED,
+            ip: $ip,
+            eventPayload: $reason ? ['reason' => $reason] : [],
+        );
+    }
+
+    public function reactivate(AccountOpening $opening, User $reviewer, ?string $ip): AccountOpening
+    {
+        return $this->transition(
+            $opening,
+            $reviewer,
+            from: [AccountOpening::STATUS_DEACTIVATED],
+            to: AccountOpening::STATUS_APPROVED,
+            ip: $ip,
+        );
+    }
+
     /**
      * Exclusão definitiva da proposta (dados + documentos do disco).
-     * Propostas aprovadas não podem ser excluídas.
+     * Contas ativas (aprovadas ou bloqueadas) não podem ser excluídas —
+     * desative antes, se for realmente necessário.
      */
     public function delete(AccountOpening $opening): void
     {
-        if ($opening->status === AccountOpening::STATUS_APPROVED) {
+        if (in_array($opening->status, [AccountOpening::STATUS_APPROVED, AccountOpening::STATUS_BLOCKED], true)) {
             throw ValidationException::withMessages([
-                'status' => ['Propostas aprovadas não podem ser excluídas.'],
+                'status' => ['Contas ativas não podem ser excluídas. Desative a conta antes.'],
             ]);
         }
 

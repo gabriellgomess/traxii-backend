@@ -70,6 +70,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{opening:uuid}/reject', [AccountOpeningReviewController::class, 'reject']);
         Route::post('/{opening:uuid}/pendency', [AccountOpeningReviewController::class, 'createPendency']);
         Route::post('/{opening:uuid}/resume-analysis', [AccountOpeningReviewController::class, 'resumeAnalysis']);
+        Route::post('/{opening:uuid}/block', [AccountOpeningReviewController::class, 'block']);
+        Route::post('/{opening:uuid}/unblock', [AccountOpeningReviewController::class, 'unblock']);
+        Route::post('/{opening:uuid}/deactivate', [AccountOpeningReviewController::class, 'deactivate']);
+        Route::post('/{opening:uuid}/reactivate', [AccountOpeningReviewController::class, 'reactivate']);
         Route::delete('/{opening:uuid}', [AccountOpeningReviewController::class, 'destroy']);
     });
 });

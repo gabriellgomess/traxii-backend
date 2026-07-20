@@ -32,6 +32,11 @@ class AccountOpening extends Model
 
     public const STATUS_REJECTED = 'rejected';
 
+    // Estados de conta (pós-aprovação)
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUS_DEACTIVATED = 'deactivated';
+
     public const DOCUMENT_TYPE_RG = 'rg';
 
     public const DOCUMENT_TYPE_CNH = 'cnh';
