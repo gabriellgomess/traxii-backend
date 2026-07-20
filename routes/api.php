@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountOpeningController;
+use App\Http\Controllers\AccountOpeningPendencyController;
 use App\Http\Controllers\AccountOpeningReviewController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompanyController;
@@ -17,6 +18,14 @@ Route::post('/auth/login', [AuthController::class, 'login'])
 
 Route::get('/public/theme', [CompanyController::class, 'publicTheme'])
     ->middleware('throttle:60,1');
+
+// Resolução de pendência pelo cliente (link enviado pelo backoffice)
+Route::prefix('public/account-openings/{opening:uuid}/pendency')
+    ->middleware('throttle:20,1')
+    ->group(function () {
+        Route::get('/', [AccountOpeningPendencyController::class, 'show']);
+        Route::post('/resolve', [AccountOpeningPendencyController::class, 'resolve']);
+    });
 
 // Abertura de conta PF (wizard do whitelabel) — rate limiting agressivo na
 // criação (anti-abuso) e token de retomada obrigatório nas demais rotas
@@ -59,5 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{opening:uuid}/start-analysis', [AccountOpeningReviewController::class, 'startAnalysis']);
         Route::post('/{opening:uuid}/approve', [AccountOpeningReviewController::class, 'approve']);
         Route::post('/{opening:uuid}/reject', [AccountOpeningReviewController::class, 'reject']);
+        Route::post('/{opening:uuid}/pendency', [AccountOpeningReviewController::class, 'createPendency']);
+        Route::post('/{opening:uuid}/resume-analysis', [AccountOpeningReviewController::class, 'resumeAnalysis']);
     });
 });

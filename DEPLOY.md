@@ -47,6 +47,33 @@ inteiro (cobriria `framework/` e quebraria o boot).
 Upload de logo: multipart `logo` (imagem, máx. 2 MB) no POST; update usa POST com
 `_method=PUT`. `remove_logo=1` remove o logo atual.
 
+## E-mails ao proponente (prontos, desativados)
+
+Aprovação, reprovação (mensagem padrão — o motivo real nunca sai do gestor) e
+pendência (mensagem do operador + link de resolução). Para ativar, na aba
+Environment:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=...
+MAIL_PORT=587
+MAIL_USERNAME=...
+MAIL_PASSWORD=...
+MAIL_FROM_ADDRESS=nao-responda@dominio.com
+MAIL_FROM_NAME="Percapital"
+MAIL_NOTIFICATIONS_ENABLED=true
+```
+
+Sem `MAIL_NOTIFICATIONS_ENABLED=true` nada é enviado (apenas log). Falha de
+SMTP nunca bloqueia a operação de aprovação/reprovação/pendência.
+
+O link de resolução da pendência usa o domínio cadastrado da empresa
+(`https://{dominio}/pendencia/{uuid}?t=...`) e também é exibido no gestor
+na criação da pendência, para envio manual enquanto o e-mail está desativado.
+
+> Migration desta etapa: `php artisan migrate --force`
+> (tabela `account_opening_pendencies`).
+
 ## Papéis (coluna `users.role`)
 
 `super_admin` (global, sem company_id) · `company_admin` · `company_operator`

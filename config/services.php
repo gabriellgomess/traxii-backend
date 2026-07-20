@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    // E-mails transacionais da plataforma (abertura de conta etc.).
+    // Ativar apenas quando as credenciais MAIL_* estiverem configuradas.
+    'notifications' => [
+        'enabled' => env('MAIL_NOTIFICATIONS_ENABLED', false),
+    ],
+
 ];

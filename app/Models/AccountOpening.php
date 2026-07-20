@@ -26,6 +26,8 @@ class AccountOpening extends Model
 
     public const STATUS_IN_ANALYSIS = 'in_analysis';
 
+    public const STATUS_PENDING_CUSTOMER = 'pending_customer';
+
     public const STATUS_APPROVED = 'approved';
 
     public const STATUS_REJECTED = 'rejected';
@@ -68,6 +70,19 @@ class AccountOpening extends Model
     public function events(): HasMany
     {
         return $this->hasMany(AccountOpeningEvent::class);
+    }
+
+    public function pendencies(): HasMany
+    {
+        return $this->hasMany(AccountOpeningPendency::class);
+    }
+
+    public function openPendency(): ?AccountOpeningPendency
+    {
+        return $this->pendencies()
+            ->where('status', AccountOpeningPendency::STATUS_OPEN)
+            ->latest('id')
+            ->first();
     }
 
     public function creator(): BelongsTo

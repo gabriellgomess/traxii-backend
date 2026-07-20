@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Requests\AccountOpening\BackofficeStoreRequest;
 use App\Models\AccountOpening;
 use App\Models\AccountOpeningDocument;
+use App\Models\AccountOpeningPendency;
 use App\Services\AccountOpeningReviewService;
 use App\Services\AccountOpeningService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -124,6 +126,7 @@ class AccountOpeningReviewController extends Controller
             'company:id,name,domain,primary_color,secondary_color,logo_path',
             'documents:id,account_opening_id,type,original_name,mime_type,size,created_at',
             'events' => fn ($q) => $q->with('user:id,name')->orderBy('created_at'),
+            'pendencies' => fn ($q) => $q->with('creator:id,name')->orderByDesc('id'),
             'reviewer:id,name',
             'creator:id,name',
         ]);
@@ -184,6 +187,45 @@ class AccountOpeningReviewController extends Controller
 
         return response()->json([
             'data' => $this->service->reject($opening, $request->user(), $data['reason'], $request->ip()),
+        ]);
+    }
+
+    /** POST /api/account-openings/{uuid}/pendency — cria pendência (itens + mensagem ao cliente) */
+    public function createPendency(Request $request, AccountOpening $opening): JsonResponse
+    {
+        $this->authorizeOpening($request, $opening);
+
+        $data = $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*' => ['string', Rule::in(AccountOpeningPendency::REQUESTABLE_ITEMS)],
+            'message' => ['required', 'string', 'max:1000'],
+        ], [
+            'items.required' => 'Selecione ao menos um item a reenviar.',
+            'items.*.in' => 'Item inválido.',
+            'message.required' => 'Escreva a mensagem que o cliente vai receber.',
+        ]);
+
+        $result = $this->service->createPendency(
+            $opening,
+            $request->user(),
+            $data['items'],
+            $data['message'],
+            $request->ip(),
+        );
+
+        return response()->json([
+            'data' => $result['opening'],
+            'resolution_url' => $result['resolution_url'],
+        ]);
+    }
+
+    /** POST /api/account-openings/{uuid}/resume-analysis — pendência resolvida fora do link */
+    public function resumeAnalysis(Request $request, AccountOpening $opening): JsonResponse
+    {
+        $this->authorizeOpening($request, $opening);
+
+        return response()->json([
+            'data' => $this->service->resumeAnalysis($opening, $request->user(), $request->ip()),
         ]);
     }
 

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AccountOpening;
 use App\Models\AccountOpeningDocument;
 use App\Models\AccountOpeningEvent;
+use App\Models\AccountOpeningPendency;
 use App\Models\User;
 use App\Repositories\AccountOpeningRepository;
 use Illuminate\Http\UploadedFile;
@@ -126,6 +127,81 @@ class AccountOpeningService
             ], userId: $creator->id, ip: $ip);
 
             return $opening->load('documents');
+        });
+    }
+
+    /* -----------------------------------------------------------------
+     | Resolução de pendência pelo cliente (link público com token)
+     |------------------------------------------------------------------
+     */
+
+    /** Localiza a pendência aberta validando o token do link (timing-safe). */
+    public function findOpenPendencyByToken(AccountOpening $opening, string $plainToken): AccountOpeningPendency
+    {
+        $pendency = $opening->openPendency();
+
+        if (
+            ! $pendency
+            || $plainToken === ''
+            || ! hash_equals($pendency->token_hash, hash('sha256', $plainToken))
+        ) {
+            abort(404, 'Pendência não encontrada ou já resolvida.');
+        }
+
+        return $pendency;
+    }
+
+    /**
+     * Cliente reenvia os itens solicitados; cadastro volta para a análise.
+     *
+     * @param  array<string, UploadedFile>  $files
+     */
+    public function resolvePendency(
+        AccountOpening $opening,
+        AccountOpeningPendency $pendency,
+        array $files,
+        ?string $ip,
+    ): AccountOpening {
+        if ($opening->status !== AccountOpening::STATUS_PENDING_CUSTOMER) {
+            throw ValidationException::withMessages([
+                'status' => ['Esta solicitação não está aguardando pendência.'],
+            ]);
+        }
+
+        $missing = array_diff($pendency->requested_items ?? [], array_keys($files));
+
+        if ($missing !== []) {
+            throw ValidationException::withMessages([
+                'files' => ['Envie todos os itens solicitados para concluir.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($opening, $pendency, $files, $ip) {
+            foreach ($files as $type => $file) {
+                $this->storeDocumentFile($opening, $type, $file);
+            }
+
+            $pendency->update([
+                'status' => AccountOpeningPendency::STATUS_RESOLVED,
+                'resolved_at' => now(),
+            ]);
+
+            $opening = $this->repository->update($opening, [
+                'status' => AccountOpening::STATUS_IN_ANALYSIS,
+            ]);
+
+            $this->repository->recordEvent($opening, AccountOpeningEvent::EVENT_DOCUMENTS_UPLOADED, [
+                'types' => array_keys($files),
+                'via' => 'pendency',
+            ], ip: $ip);
+
+            $this->repository->recordEvent($opening, AccountOpeningEvent::EVENT_PENDENCY_RESOLVED, [
+                'items' => array_keys($files),
+                'from_status' => AccountOpening::STATUS_PENDING_CUSTOMER,
+                'to_status' => AccountOpening::STATUS_IN_ANALYSIS,
+            ], ip: $ip);
+
+            return $opening;
         });
     }
 

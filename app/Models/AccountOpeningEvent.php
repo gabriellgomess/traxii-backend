@@ -27,6 +27,10 @@ class AccountOpeningEvent extends Model
 
     public const EVENT_STATUS_CHANGED = 'status_changed';
 
+    public const EVENT_PENDENCY_CREATED = 'pendency_created';
+
+    public const EVENT_PENDENCY_RESOLVED = 'pendency_resolved';
+
     protected function casts(): array
     {
         return [
