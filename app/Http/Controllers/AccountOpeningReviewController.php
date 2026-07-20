@@ -90,6 +90,11 @@ class AccountOpeningReviewController extends Controller
     ): StreamedResponse {
         $this->authorizeOpening($request, $opening);
         abort_unless($document->account_opening_id === $opening->id, 404);
+        abort_unless(
+            Storage::disk('local')->exists($document->path),
+            404,
+            'Arquivo não encontrado no armazenamento.',
+        );
 
         return Storage::disk('local')->response(
             $document->path,

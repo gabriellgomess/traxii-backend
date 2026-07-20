@@ -21,11 +21,13 @@ php artisan db:seed --force
 
 ## Volume persistente (Easypanel → Armazenamento)
 
-Os logotipos são gravados em `storage/app/public`. Para sobreviverem a
-redeploys, crie uma **Montagem de Volume** no serviço backend:
+Uploads precisam de **dois volumes** no serviço backend para sobreviver a
+redeploys:
 
-- Nome: `storage-public`
-- Caminho de montagem: `/var/www/html/storage/app/public`
+| Nome | Caminho de montagem | Conteúdo |
+| --- | --- | --- |
+| `storage-public` | `/var/www/html/storage/app/public` | Logotipos (servidos publicamente) |
+| `storage-private` | `/var/www/html/storage/app/private` | Documentos/selfies das aberturas de conta (disco `local`, nunca públicos) |
 
 O entrypoint recria o symlink `public/storage` e ajusta permissões
 (`www-data`) a cada boot. Não monte o volume em `/var/www/html/storage`
