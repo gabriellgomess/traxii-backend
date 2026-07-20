@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountOpeningController;
+use App\Http\Controllers\AccountOpeningReviewController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompanyController;
 use Illuminate\Support\Facades\Route;
@@ -47,5 +48,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Gestão de empresas (whitelabel) — somente super admin
     Route::middleware('role:super_admin')->group(function () {
         Route::apiResource('companies', CompanyController::class);
+    });
+
+    // Backoffice de aberturas de conta — escopo por papel dentro do controller
+    Route::prefix('account-openings')->group(function () {
+        Route::get('/', [AccountOpeningReviewController::class, 'index']);
+        Route::get('/{opening:uuid}', [AccountOpeningReviewController::class, 'show']);
+        Route::get('/{opening:uuid}/documents/{document}', [AccountOpeningReviewController::class, 'document']);
+        Route::post('/{opening:uuid}/start-analysis', [AccountOpeningReviewController::class, 'startAnalysis']);
+        Route::post('/{opening:uuid}/approve', [AccountOpeningReviewController::class, 'approve']);
+        Route::post('/{opening:uuid}/reject', [AccountOpeningReviewController::class, 'reject']);
     });
 });
