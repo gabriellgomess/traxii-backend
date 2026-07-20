@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AccountOpening\BackofficeStoreRequest;
 use App\Models\AccountOpening;
 use App\Models\AccountOpeningDocument;
 use App\Services\AccountOpeningReviewService;
+use App\Services\AccountOpeningService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -17,7 +20,53 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class AccountOpeningReviewController extends Controller
 {
-    public function __construct(private readonly AccountOpeningReviewService $service) {}
+    public function __construct(
+        private readonly AccountOpeningReviewService $service,
+        private readonly AccountOpeningService $openingService,
+    ) {}
+
+    /** POST /api/account-openings — cadastro manual pelo backoffice */
+    public function store(BackofficeStoreRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $validated = $request->validated();
+
+        // super_admin escolhe a empresa; usuário de empresa fica na própria
+        $companyId = $user->isSuperAdmin()
+            ? (int) ($validated['company_id'] ?? 0)
+            : (int) $user->company_id;
+
+        if ($companyId <= 0) {
+            throw ValidationException::withMessages([
+                'company_id' => ['Selecione a empresa (whitelabel) do cliente.'],
+            ]);
+        }
+
+        $files = [];
+        foreach (['document_front', 'document_back', 'address_proof', 'selfie'] as $type) {
+            if ($request->hasFile($type)) {
+                $files[$type] = $request->file($type);
+            }
+        }
+
+        unset(
+            $validated['company_id'],
+            $validated['document_front'],
+            $validated['document_back'],
+            $validated['address_proof'],
+            $validated['selfie'],
+        );
+
+        $opening = $this->openingService->createFromBackoffice(
+            $validated,
+            $companyId,
+            $files,
+            $user,
+            $request->ip(),
+        );
+
+        return response()->json(['data' => $opening], 201);
+    }
 
     /** GET /api/account-openings?status=&company_id=&search=&page= */
     public function index(Request $request): JsonResponse

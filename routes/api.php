@@ -53,6 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Backoffice de aberturas de conta — escopo por papel dentro do controller
     Route::prefix('account-openings')->group(function () {
         Route::get('/', [AccountOpeningReviewController::class, 'index']);
+        Route::post('/', [AccountOpeningReviewController::class, 'store']);
         Route::get('/{opening:uuid}', [AccountOpeningReviewController::class, 'show']);
         Route::get('/{opening:uuid}/documents/{document}', [AccountOpeningReviewController::class, 'document']);
         Route::post('/{opening:uuid}/start-analysis', [AccountOpeningReviewController::class, 'startAnalysis']);

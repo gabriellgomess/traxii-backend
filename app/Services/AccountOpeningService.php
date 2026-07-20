@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AccountOpening;
 use App\Models\AccountOpeningDocument;
 use App\Models\AccountOpeningEvent;
+use App\Models\User;
 use App\Repositories\AccountOpeningRepository;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +69,64 @@ class AccountOpeningService
         });
 
         return ['opening' => $opening, 'resume_token' => $resumeToken];
+    }
+
+    /* -----------------------------------------------------------------
+     | Cadastro manual pelo backoffice (app Gestor)
+     |------------------------------------------------------------------
+     */
+
+    /**
+     * Cria a proposta completa (dados + endereço + documentos opcionais) em
+     * nome de um operador autenticado, já enviada para análise.
+     *
+     * @param  array<string, UploadedFile>  $files
+     */
+    public function createFromBackoffice(
+        array $data,
+        int $companyId,
+        array $files,
+        User $creator,
+        ?string $ip,
+    ): AccountOpening {
+        $data = $this->normalizePersonalData($data);
+        $this->ensureUniquePersonalData($companyId, $data);
+
+        return DB::transaction(function () use ($data, $companyId, $files, $creator, $ip) {
+            $opening = $this->repository->create([
+                ...$data,
+                'uuid' => (string) Str::uuid(),
+                'resume_token_hash' => hash('sha256', Str::random(64)),
+                'company_id' => $companyId,
+                'status' => AccountOpening::STATUS_PENDING,
+                'current_step' => AccountOpening::TOTAL_STEPS,
+                'submitted_via' => AccountOpening::SUBMITTED_VIA_BACKOFFICE,
+                'created_by' => $creator->id,
+                'submitted_at' => now(),
+            ]);
+
+            $this->repository->recordEvent($opening, AccountOpeningEvent::EVENT_CREATED, [
+                'company_id' => $companyId,
+                'via' => AccountOpening::SUBMITTED_VIA_BACKOFFICE,
+            ], userId: $creator->id, ip: $ip);
+
+            foreach ($files as $type => $file) {
+                $this->storeDocumentFile($opening, $type, $file);
+            }
+
+            if ($files !== []) {
+                $this->repository->recordEvent($opening, AccountOpeningEvent::EVENT_DOCUMENTS_UPLOADED, [
+                    'types' => array_keys($files),
+                ], userId: $creator->id, ip: $ip);
+            }
+
+            $this->repository->recordEvent($opening, AccountOpeningEvent::EVENT_SUBMITTED, [
+                'from_status' => AccountOpening::STATUS_DRAFT,
+                'to_status' => AccountOpening::STATUS_PENDING,
+            ], userId: $creator->id, ip: $ip);
+
+            return $opening->load('documents');
+        });
     }
 
     public function updatePersonalData(AccountOpening $opening, array $data, ?string $ip): AccountOpening
