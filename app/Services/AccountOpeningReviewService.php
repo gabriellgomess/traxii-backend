@@ -148,6 +148,28 @@ class AccountOpeningReviewService
         return $opening;
     }
 
+    /**
+     * Exclusão definitiva da proposta (dados + documentos do disco).
+     * Propostas aprovadas não podem ser excluídas.
+     */
+    public function delete(AccountOpening $opening): void
+    {
+        if ($opening->status === AccountOpening::STATUS_APPROVED) {
+            throw ValidationException::withMessages([
+                'status' => ['Propostas aprovadas não podem ser excluídas.'],
+            ]);
+        }
+
+        DB::transaction(function () use ($opening) {
+            // Registros de documentos/eventos/pendências caem por cascade
+            $opening->delete();
+        });
+
+        // Arquivos do disco privado (fora da transação — melhor esforço)
+        \Illuminate\Support\Facades\Storage::disk('local')
+            ->deleteDirectory("account-openings/{$opening->uuid}");
+    }
+
     private function transition(
         AccountOpening $opening,
         User $reviewer,

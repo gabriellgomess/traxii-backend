@@ -229,6 +229,16 @@ class AccountOpeningReviewController extends Controller
         ]);
     }
 
+    /** DELETE /api/account-openings/{uuid} — exclusão definitiva */
+    public function destroy(Request $request, AccountOpening $opening): JsonResponse
+    {
+        $this->authorizeOpening($request, $opening);
+
+        $this->service->delete($opening);
+
+        return response()->json(['message' => 'Proposta excluída definitivamente.']);
+    }
+
     /** Query base restrita ao escopo do usuário logado. */
     private function scopedQuery(Request $request): Builder
     {

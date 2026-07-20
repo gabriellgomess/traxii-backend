@@ -70,5 +70,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{opening:uuid}/reject', [AccountOpeningReviewController::class, 'reject']);
         Route::post('/{opening:uuid}/pendency', [AccountOpeningReviewController::class, 'createPendency']);
         Route::post('/{opening:uuid}/resume-analysis', [AccountOpeningReviewController::class, 'resumeAnalysis']);
+        Route::delete('/{opening:uuid}', [AccountOpeningReviewController::class, 'destroy']);
     });
 });
