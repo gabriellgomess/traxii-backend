@@ -7,27 +7,21 @@ use App\Rules\Cpf;
 use App\Rules\FullName;
 use App\Support\BrazilianStates;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 /**
  * Regras da etapa 1 (dados pessoais), compartilhadas entre criação e edição.
+ *
+ * Sem campo de senha: o correntista não define senha no cadastro público.
+ * Se/quando o cadastro for aprovado, uma senha provisória é gerada e
+ * enviada por e-mail (fluxo de aprovação — Fase 4 do roadmap).
  */
 trait PersonalDataRules
 {
-    /**
-     * @param  bool  $passwordRequired  na edição a senha é opcional (mantém a atual)
-     */
-    protected function personalDataRules(bool $passwordRequired = true): array
+    protected function personalDataRules(): array
     {
         return [
             'full_name' => ['required', 'string', 'max:120', new FullName],
             'email' => ['required', 'string', 'email:rfc', 'max:255'],
-            'password' => [
-                $passwordRequired ? 'required' : 'nullable',
-                'string',
-                'confirmed',
-                Password::min(8)->mixedCase()->numbers()->symbols(),
-            ],
             'cpf' => ['required', 'string', new Cpf],
             'document_type' => ['required', 'string', Rule::in(['rg', 'cnh'])],
             'document_number' => ['required', 'string', 'regex:/^[A-Za-z0-9.\-]{3,20}$/'],
@@ -49,8 +43,6 @@ trait PersonalDataRules
             'full_name.required' => 'Informe seu nome completo.',
             'email.required' => 'Informe seu e-mail.',
             'email.email' => 'Informe um e-mail válido.',
-            'password.required' => 'Crie uma senha.',
-            'password.confirmed' => 'A confirmação de senha não confere.',
             'cpf.required' => 'Informe seu CPF.',
             'document_type.required' => 'Selecione o tipo de documento.',
             'document_type.in' => 'Tipo de documento inválido (use RG ou CNH).',

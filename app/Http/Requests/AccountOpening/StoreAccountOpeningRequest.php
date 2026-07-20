@@ -17,7 +17,7 @@ class StoreAccountOpeningRequest extends FormRequest
     public function rules(): array
     {
         return [
-            ...$this->personalDataRules(passwordRequired: true),
+            ...$this->personalDataRules(),
             // Domínio onde a dist whitelabel está instalada (resolve o tenant)
             'domain' => ['nullable', 'string', 'max:255'],
         ];

@@ -91,6 +91,23 @@ class AccountOpening extends Model
         return $this->documents->contains(fn (AccountOpeningDocument $doc) => $doc->type === $type);
     }
 
+    /**
+     * Documentos obrigatórios na etapa 3, conforme o tipo escolhido.
+     * A CNH digital (a mais comum hoje) já traz frente e verso no mesmo
+     * PDF, enviado no slot "frente" — o verso fica opcional.
+     */
+    public function requiredDocumentTypes(): array
+    {
+        if ($this->document_type === self::DOCUMENT_TYPE_CNH) {
+            return [
+                AccountOpeningDocument::TYPE_DOCUMENT_FRONT,
+                AccountOpeningDocument::TYPE_ADDRESS_PROOF,
+            ];
+        }
+
+        return AccountOpeningDocument::REQUIRED_UPLOAD_TYPES;
+    }
+
     public function hasAllAcceptances(): bool
     {
         return $this->terms_accepted_at !== null

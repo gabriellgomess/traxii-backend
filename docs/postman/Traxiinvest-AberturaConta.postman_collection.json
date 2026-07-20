@@ -29,7 +29,7 @@
                   "  pm.expect(data.uuid).to.be.a('string');",
                   "  pm.expect(data.resume_token).to.have.lengthOf(64);",
                   "});",
-                  "pm.test('não expõe a senha', () => pm.expect(data.personal_data).to.not.have.property('password'));",
+                  "pm.test('não pede/expõe senha (definida só na aprovação)', () => pm.expect(data.personal_data).to.not.have.property('password'));",
                   "pm.collectionVariables.set('opening_uuid', data.uuid);",
                   "pm.collectionVariables.set('opening_token', data.resume_token);"
                 ]
@@ -41,7 +41,7 @@
             "header": [{ "key": "Accept", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Maria da Silva\",\n  \"email\": \"maria.silva@example.com\",\n  \"password\": \"SenhaForte@123\",\n  \"password_confirmation\": \"SenhaForte@123\",\n  \"cpf\": \"529.982.247-25\",\n  \"document_type\": \"rg\",\n  \"document_number\": \"12.345.678-9\",\n  \"document_issuer\": \"SSP\",\n  \"document_issuer_uf\": \"SP\",\n  \"birth_date\": \"1990-05-10\",\n  \"phone\": \"(11) 98888-7777\",\n  \"domain\": \"novabank.com.br\"\n}",
+              "raw": "{\n  \"full_name\": \"Maria da Silva\",\n  \"email\": \"maria.silva@example.com\",\n  \"cpf\": \"529.982.247-25\",\n  \"document_type\": \"rg\",\n  \"document_number\": \"12.345.678-9\",\n  \"document_issuer\": \"SSP\",\n  \"document_issuer_uf\": \"SP\",\n  \"birth_date\": \"1990-05-10\",\n  \"phone\": \"(11) 98888-7777\",\n  \"domain\": \"novabank.com.br\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{base_url}}/api/public/account-openings", "host": ["{{base_url}}"], "path": ["api", "public", "account-openings"] }
@@ -68,7 +68,7 @@
             "header": [{ "key": "Accept", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Maria da Silva\",\n  \"email\": \"cpf.invalido@example.com\",\n  \"password\": \"SenhaForte@123\",\n  \"password_confirmation\": \"SenhaForte@123\",\n  \"cpf\": \"111.111.111-11\",\n  \"document_type\": \"rg\",\n  \"document_number\": \"12.345.678-9\",\n  \"document_issuer\": \"SSP\",\n  \"document_issuer_uf\": \"SP\",\n  \"birth_date\": \"1990-05-10\",\n  \"phone\": \"(11) 97777-1111\",\n  \"domain\": \"novabank.com.br\"\n}",
+              "raw": "{\n  \"full_name\": \"Maria da Silva\",\n  \"email\": \"cpf.invalido@example.com\",\n  \"cpf\": \"111.111.111-11\",\n  \"document_type\": \"rg\",\n  \"document_number\": \"12.345.678-9\",\n  \"document_issuer\": \"SSP\",\n  \"document_issuer_uf\": \"SP\",\n  \"birth_date\": \"1990-05-10\",\n  \"phone\": \"(11) 97777-1111\",\n  \"domain\": \"novabank.com.br\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{base_url}}/api/public/account-openings", "host": ["{{base_url}}"], "path": ["api", "public", "account-openings"] }
@@ -95,7 +95,7 @@
             "header": [{ "key": "Accept", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Outra Pessoa\",\n  \"email\": \"outra.pessoa@example.com\",\n  \"password\": \"SenhaForte@123\",\n  \"password_confirmation\": \"SenhaForte@123\",\n  \"cpf\": \"529.982.247-25\",\n  \"document_type\": \"cnh\",\n  \"document_number\": \"98765432100\",\n  \"document_issuer\": \"DETRAN\",\n  \"document_issuer_uf\": \"SP\",\n  \"birth_date\": \"1985-01-20\",\n  \"phone\": \"(11) 96666-2222\",\n  \"domain\": \"novabank.com.br\"\n}",
+              "raw": "{\n  \"full_name\": \"Outra Pessoa\",\n  \"email\": \"outra.pessoa@example.com\",\n  \"cpf\": \"529.982.247-25\",\n  \"document_type\": \"cnh\",\n  \"document_number\": \"98765432100\",\n  \"document_issuer\": \"DETRAN\",\n  \"document_issuer_uf\": \"SP\",\n  \"birth_date\": \"1985-01-20\",\n  \"phone\": \"(11) 96666-2222\",\n  \"domain\": \"novabank.com.br\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{base_url}}/api/public/account-openings", "host": ["{{base_url}}"], "path": ["api", "public", "account-openings"] }
@@ -122,34 +122,7 @@
             "header": [{ "key": "Accept", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Jovem Demais\",\n  \"email\": \"jovem@example.com\",\n  \"password\": \"SenhaForte@123\",\n  \"password_confirmation\": \"SenhaForte@123\",\n  \"cpf\": \"168.995.350-09\",\n  \"document_type\": \"rg\",\n  \"document_number\": \"11.222.333-4\",\n  \"document_issuer\": \"SSP\",\n  \"document_issuer_uf\": \"RJ\",\n  \"birth_date\": \"2010-01-01\",\n  \"phone\": \"(21) 95555-3333\",\n  \"domain\": \"novabank.com.br\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": { "raw": "{{base_url}}/api/public/account-openings", "host": ["{{base_url}}"], "path": ["api", "public", "account-openings"] }
-          }
-        },
-        {
-          "name": "Erro — senha fraca",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('422 com erro em password', () => {",
-                  "  pm.response.to.have.status(422);",
-                  "  pm.expect(pm.response.json().errors).to.have.property('password');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Accept", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Senha Fraca\",\n  \"email\": \"senha.fraca@example.com\",\n  \"password\": \"12345678\",\n  \"password_confirmation\": \"12345678\",\n  \"cpf\": \"168.995.350-09\",\n  \"document_type\": \"rg\",\n  \"document_number\": \"11.222.333-4\",\n  \"document_issuer\": \"SSP\",\n  \"document_issuer_uf\": \"RJ\",\n  \"birth_date\": \"1992-03-15\",\n  \"phone\": \"(21) 95555-4444\",\n  \"domain\": \"novabank.com.br\"\n}",
+              "raw": "{\n  \"full_name\": \"Jovem Demais\",\n  \"email\": \"jovem@example.com\",\n  \"cpf\": \"168.995.350-09\",\n  \"document_type\": \"rg\",\n  \"document_number\": \"11.222.333-4\",\n  \"document_issuer\": \"SSP\",\n  \"document_issuer_uf\": \"RJ\",\n  \"birth_date\": \"2010-01-01\",\n  \"phone\": \"(21) 95555-3333\",\n  \"domain\": \"novabank.com.br\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{base_url}}/api/public/account-openings", "host": ["{{base_url}}"], "path": ["api", "public", "account-openings"] }
@@ -178,14 +151,14 @@
             "header": [{ "key": "Accept", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Maria\",\n  \"email\": \"ddd.invalido@example.com\",\n  \"password\": \"SenhaForte@123\",\n  \"password_confirmation\": \"SenhaForte@123\",\n  \"cpf\": \"168.995.350-09\",\n  \"document_type\": \"rg\",\n  \"document_number\": \"11.222.333-4\",\n  \"document_issuer\": \"SSP\",\n  \"document_issuer_uf\": \"SP\",\n  \"birth_date\": \"1992-03-15\",\n  \"phone\": \"(20) 98888-0000\",\n  \"domain\": \"novabank.com.br\"\n}",
+              "raw": "{\n  \"full_name\": \"Maria\",\n  \"email\": \"ddd.invalido@example.com\",\n  \"cpf\": \"168.995.350-09\",\n  \"document_type\": \"rg\",\n  \"document_number\": \"11.222.333-4\",\n  \"document_issuer\": \"SSP\",\n  \"document_issuer_uf\": \"SP\",\n  \"birth_date\": \"1992-03-15\",\n  \"phone\": \"(20) 98888-0000\",\n  \"domain\": \"novabank.com.br\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{base_url}}/api/public/account-openings", "host": ["{{base_url}}"], "path": ["api", "public", "account-openings"] }
           }
         },
         {
-          "name": "Editar dados pessoais (senha opcional)",
+          "name": "Editar dados pessoais",
           "event": [
             {
               "listen": "test",
@@ -420,6 +393,41 @@
               ]
             },
             "url": { "raw": "{{base_url}}/api/public/account-openings/{{opening_uuid}}/documents", "host": ["{{base_url}}"], "path": ["api", "public", "account-openings", "{{opening_uuid}}", "documents"] }
+          }
+        },
+        {
+          "name": "Upload CNH digital — sem verso (opcional)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 mesmo sem document_back (CNH digital já traz frente e verso no PDF)', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const docs = pm.response.json().data.documents;",
+                  "  pm.expect(docs.document_front.uploaded).to.be.true;",
+                  "  pm.expect(docs.address_proof.uploaded).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Opening-Token", "value": "{{opening_token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "document_front", "type": "file", "src": "", "description": "PDF da CNH digital (traz frente e verso no mesmo arquivo)" },
+                { "key": "address_proof", "type": "file", "src": "", "description": "JPG/PNG/WEBP/PDF até 8 MB" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/public/account-openings/{{opening_uuid}}/documents", "host": ["{{base_url}}"], "path": ["api", "public", "account-openings", "{{opening_uuid}}", "documents"] },
+            "description": "Só avança sem o verso se o cadastro foi aberto com document_type=cnh. Para RG, document_back continua obrigatório."
           }
         },
         {

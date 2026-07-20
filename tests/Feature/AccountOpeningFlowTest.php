@@ -36,8 +36,6 @@ class AccountOpeningFlowTest extends TestCase
         return array_merge([
             'full_name' => 'Maria da Silva',
             'email' => 'maria@example.com',
-            'password' => 'SenhaForte@123',
-            'password_confirmation' => 'SenhaForte@123',
             'cpf' => '529.982.247-25',
             'document_type' => 'rg',
             'document_number' => '12.345.678-9',
@@ -95,10 +93,10 @@ class AccountOpeningFlowTest extends TestCase
         ]);
         $this->assertDatabaseHas('account_opening_events', ['event' => 'created']);
 
-        // Senha nunca volta na resposta e é armazenada com hash
+        // Não há campo de senha no cadastro público (definida só na aprovação)
         $this->assertArrayNotHasKey('password', $response->json('data.personal_data'));
         $opening = AccountOpening::query()->first();
-        $this->assertNotSame('SenhaForte@123', $opening->password);
+        $this->assertNull($opening->password);
     }
 
     public function test_rejects_invalid_cpf(): void
@@ -137,14 +135,6 @@ class AccountOpeningFlowTest extends TestCase
         $this->postJson('/api/public/account-openings', $this->validPersonalData([
             'birth_date' => now()->subYears(17)->format('Y-m-d'),
         ]))->assertUnprocessable()->assertJsonValidationErrors('birth_date');
-    }
-
-    public function test_rejects_weak_password(): void
-    {
-        $this->postJson('/api/public/account-openings', $this->validPersonalData([
-            'password' => 'senhafraca',
-            'password_confirmation' => 'senhafraca',
-        ]))->assertUnprocessable()->assertJsonValidationErrors('password');
     }
 
     public function test_rejects_invalid_ddd_and_single_name(): void
@@ -271,6 +261,26 @@ class AccountOpeningFlowTest extends TestCase
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('document_front');
     }
 
+    public function test_cnh_does_not_require_document_back(): void
+    {
+        // CNH digital: o PDF único (frente) já traz os dois lados
+        $response = $this->postJson('/api/public/account-openings', $this->validPersonalData([
+            'document_type' => 'cnh',
+            'document_number' => '98765432100',
+            'document_issuer' => 'DETRAN',
+        ]));
+        $data = $response->json('data');
+        $headers = ['X-Opening-Token' => $data['resume_token']];
+        $uuid = $data['uuid'];
+
+        $this->postJson("/api/public/account-openings/{$uuid}/documents", [
+            'document_front' => UploadedFile::fake()->create('cnh-digital.pdf', 500, 'application/pdf'),
+            'address_proof' => UploadedFile::fake()->create('conta-luz.pdf', 500, 'application/pdf'),
+        ], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.current_step', 4); // avança sem o verso
+    }
+
     /* ----------------------------------------------------------------
      | Etapas 4 e 5 — prova de vida e selfie
      |-----------------------------------------------------------------
@@ -384,5 +394,47 @@ class AccountOpeningFlowTest extends TestCase
             'city' => 'São Paulo',
             'state' => 'SP',
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('status');
+    }
+
+    public function test_submits_cnh_registration_without_document_back(): void
+    {
+        $response = $this->postJson('/api/public/account-openings', $this->validPersonalData([
+            'document_type' => 'cnh',
+            'document_number' => '98765432100',
+            'document_issuer' => 'DETRAN',
+        ]));
+        $data = $response->json('data');
+        $headers = ['X-Opening-Token' => $data['resume_token']];
+        $uuid = $data['uuid'];
+
+        $this->putJson("/api/public/account-openings/{$uuid}/address", [
+            'zip_code' => '01310-100',
+            'street' => 'Avenida Paulista',
+            'number' => '1000',
+            'neighborhood' => 'Bela Vista',
+            'city' => 'São Paulo',
+            'state' => 'SP',
+        ], $headers)->assertOk();
+
+        $this->postJson("/api/public/account-openings/{$uuid}/documents", [
+            'document_front' => UploadedFile::fake()->create('cnh-digital.pdf', 500, 'application/pdf'),
+            'address_proof' => UploadedFile::fake()->create('conta-luz.pdf', 500, 'application/pdf'),
+        ], $headers)->assertOk();
+
+        $this->postJson("/api/public/account-openings/{$uuid}/liveness", [
+            'challenges' => ['turnLeft', 'turnRight', 'moveCloser', 'nod'],
+        ], $headers)->assertOk();
+
+        $this->postJson("/api/public/account-openings/{$uuid}/selfie", [
+            'selfie' => UploadedFile::fake()->create('selfie.jpg', 300, 'image/jpeg'),
+        ], $headers)->assertOk();
+
+        $this->postJson("/api/public/account-openings/{$uuid}/submit", [
+            'accept_terms' => true,
+            'accept_privacy' => true,
+            'accept_truthfulness' => true,
+        ], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pending');
     }
 }

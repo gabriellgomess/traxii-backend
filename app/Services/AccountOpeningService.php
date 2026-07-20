@@ -77,11 +77,6 @@ class AccountOpeningService
         $data = $this->normalizePersonalData($data);
         $this->ensureUniquePersonalData($opening->company_id, $data, $opening->id);
 
-        // Senha em branco na edição mantém a senha já definida
-        if (empty($data['password'])) {
-            unset($data['password']);
-        }
-
         $opening = $this->repository->update($opening, $data);
         $this->repository->recordEvent($opening, AccountOpeningEvent::EVENT_PERSONAL_DATA_UPDATED, ip: $ip);
 
@@ -127,7 +122,7 @@ class AccountOpeningService
 
         $opening->load('documents');
 
-        $hasAllDocuments = collect(AccountOpeningDocument::REQUIRED_UPLOAD_TYPES)
+        $hasAllDocuments = collect($opening->requiredDocumentTypes())
             ->every(fn (string $type) => $opening->hasDocument($type));
 
         if ($hasAllDocuments) {
@@ -380,7 +375,7 @@ class AccountOpeningService
             $errors['address'] = ['Preencha o endereço completo antes de finalizar.'];
         }
 
-        foreach (AccountOpeningDocument::REQUIRED_UPLOAD_TYPES as $type) {
+        foreach ($opening->requiredDocumentTypes() as $type) {
             if (! $opening->hasDocument($type)) {
                 $errors[$type] = ['Envie todos os documentos obrigatórios antes de finalizar.'];
                 break;

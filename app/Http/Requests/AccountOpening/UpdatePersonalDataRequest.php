@@ -16,7 +16,7 @@ class UpdatePersonalDataRequest extends FormRequest
 
     public function rules(): array
     {
-        return $this->personalDataRules(passwordRequired: false);
+        return $this->personalDataRules();
     }
 
     public function messages(): array
