@@ -25,6 +25,11 @@ class Company extends Model
         return $this->hasMany(User::class);
     }
 
+    public function accountOpenings(): HasMany
+    {
+        return $this->hasMany(AccountOpening::class);
+    }
+
     protected function logoUrl(): Attribute
     {
         return Attribute::get(

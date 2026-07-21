@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class CompanyController extends Controller
 {
@@ -77,6 +78,28 @@ class CompanyController extends Controller
     /** DELETE /api/companies/{company} */
     public function destroy(Company $company): JsonResponse
     {
+        // Proteção: excluir a empresa apagaria em cascata todas as aberturas
+        // de conta vinculadas. Nesse caso, desative em vez de excluir.
+        $openings = $company->accountOpenings()->count();
+        $users = $company->users()->count();
+
+        if ($openings > 0 || $users > 0) {
+            $parts = [];
+            if ($openings > 0) {
+                $parts[] = $openings.' '.($openings === 1 ? 'cadastro de conta' : 'cadastros de conta');
+            }
+            if ($users > 0) {
+                $parts[] = $users.' '.($users === 1 ? 'usuário' : 'usuários');
+            }
+
+            throw ValidationException::withMessages([
+                'company' => [
+                    'Esta empresa possui '.implode(' e ', $parts).
+                    ' e não pode ser excluída. Desative-a para bloquear novos acessos.',
+                ],
+            ]);
+        }
+
         if ($company->logo_path) {
             Storage::disk('public')->delete($company->logo_path);
         }
