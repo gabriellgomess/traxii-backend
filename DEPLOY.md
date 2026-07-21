@@ -71,8 +71,8 @@ O link de resolução da pendência usa o domínio cadastrado da empresa
 (`https://{dominio}/pendencia/{uuid}?t=...`) e também é exibido no gestor
 na criação da pendência, para envio manual enquanto o e-mail está desativado.
 
-> Migration desta etapa: `php artisan migrate --force`
-> (tabela `account_opening_pendencies`).
+> Migrations pendentes: `php artisan migrate --force`
+> (tabela `account_opening_pendencies`, coluna `companies.banner_path`).
 
 ## Papéis (coluna `users.role`)
 

@@ -25,6 +25,10 @@ class CompanyController extends Controller
             $data['logo_path'] = $request->file('logo')->store('logos', 'public');
         }
 
+        if ($request->hasFile('banner')) {
+            $data['banner_path'] = $request->file('banner')->store('banners', 'public');
+        }
+
         $company = Company::query()->create($data);
 
         return response()->json(['data' => $company], 201);
@@ -53,6 +57,18 @@ class CompanyController extends Controller
             $data['logo_path'] = $request->file('logo')->store('logos', 'public');
         }
 
+        if ($request->boolean('remove_banner') && $company->banner_path) {
+            Storage::disk('public')->delete($company->banner_path);
+            $data['banner_path'] = null;
+        }
+
+        if ($request->hasFile('banner')) {
+            if ($company->banner_path) {
+                Storage::disk('public')->delete($company->banner_path);
+            }
+            $data['banner_path'] = $request->file('banner')->store('banners', 'public');
+        }
+
         $company->update($data);
 
         return response()->json(['data' => $company->refresh()]);
@@ -63,6 +79,9 @@ class CompanyController extends Controller
     {
         if ($company->logo_path) {
             Storage::disk('public')->delete($company->logo_path);
+        }
+        if ($company->banner_path) {
+            Storage::disk('public')->delete($company->banner_path);
         }
         $company->delete();
 
@@ -108,6 +127,8 @@ class CompanyController extends Controller
             'is_active' => ['sometimes', 'boolean'],
             'logo' => ['nullable', 'image', 'max:2048'],
             'remove_logo' => ['sometimes', 'boolean'],
+            'banner' => ['nullable', 'image', 'max:5120'],
+            'remove_banner' => ['sometimes', 'boolean'],
         ], [
             'name.required' => 'Informe o nome da empresa.',
             'domain.unique' => 'Este domínio já está em uso por outra empresa.',
@@ -115,6 +136,8 @@ class CompanyController extends Controller
             'secondary_color.regex' => 'Cor secundária inválida (use #RRGGBB).',
             'logo.image' => 'O logotipo deve ser uma imagem.',
             'logo.max' => 'O logotipo deve ter no máximo 2 MB.',
+            'banner.image' => 'O banner deve ser uma imagem.',
+            'banner.max' => 'O banner deve ter no máximo 5 MB.',
         ]);
     }
 }

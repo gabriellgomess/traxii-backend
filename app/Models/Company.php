@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'domain', 'primary_color', 'secondary_color', 'logo_path', 'is_active'])]
+#[Fillable(['name', 'domain', 'primary_color', 'secondary_color', 'logo_path', 'banner_path', 'is_active'])]
 class Company extends Model
 {
-    protected $appends = ['logo_url'];
+    protected $appends = ['logo_url', 'banner_url'];
 
     protected function casts(): array
     {
@@ -34,6 +34,15 @@ class Company extends Model
         );
     }
 
+    protected function bannerUrl(): Attribute
+    {
+        return Attribute::get(
+            fn (): ?string => $this->banner_path
+                ? Storage::disk('public')->url($this->banner_path)
+                : null,
+        );
+    }
+
     /** Payload público do tema whitelabel (sem dados sensíveis). */
     public function toTheme(): array
     {
@@ -44,6 +53,7 @@ class Company extends Model
             'primary_color' => $this->primary_color,
             'secondary_color' => $this->secondary_color,
             'logo_url' => $this->logo_url,
+            'banner_url' => $this->banner_url,
         ];
     }
 }
