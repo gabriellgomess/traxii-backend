@@ -88,7 +88,7 @@ class AccountOpeningReviewController extends Controller
             $query->whereNot('status', AccountOpening::STATUS_DRAFT);
         }
 
-        if ($request->user()->hasGlobalScope() && ($companyId = $request->query('company_id'))) {
+        if ($request->user()->seesAllCompanies() && ($companyId = $request->query('company_id'))) {
             $query->where('company_id', $companyId);
         }
 
@@ -309,7 +309,7 @@ class AccountOpeningReviewController extends Controller
         $query = AccountOpening::query();
 
         // Percapital (master/analista) enxerga todas as empresas
-        if ($user->hasGlobalScope()) {
+        if ($user->seesAllCompanies()) {
             return $query;
         }
 
@@ -327,7 +327,7 @@ class AccountOpeningReviewController extends Controller
     {
         $user = $request->user();
 
-        if ($user->hasGlobalScope()) {
+        if ($user->seesAllCompanies()) {
             return;
         }
 

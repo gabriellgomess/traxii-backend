@@ -94,8 +94,13 @@ class User extends Authenticatable
         return $this->role === self::ROLE_COMPANY_MANAGER;
     }
 
-    /** Enxerga dados de todas as empresas (Percapital). */
-    public function hasGlobalScope(): bool
+    /**
+     * Enxerga dados de todas as empresas (Percapital).
+     *
+     * Não usar o nome `hasGlobalScope`: o Eloquent já define esse método
+     * como estático (trait HasGlobalScopes) e redeclará-lo quebra o model.
+     */
+    public function seesAllCompanies(): bool
     {
         return $this->isSuperAdmin() || $this->isAnalyst();
     }
