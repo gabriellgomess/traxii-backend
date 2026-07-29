@@ -26,6 +26,7 @@ class AccountOpeningService
     public function __construct(
         private readonly AccountOpeningRepository $repository,
         private readonly CompanyResolver $companyResolver,
+        private readonly GeocodingService $geocoding,
     ) {}
 
     /* -----------------------------------------------------------------
@@ -36,7 +37,7 @@ class AccountOpeningService
     /**
      * @return array{opening: AccountOpening, resume_token: string}
      */
-    public function start(array $data, ?string $domain, ?string $ip): array
+    public function start(array $data, ?string $domain, ?string $ip, ?string $referralCode = null): array
     {
         $company = $this->companyResolver->resolveByDomain($domain);
 
@@ -50,8 +51,9 @@ class AccountOpeningService
         $this->ensureUniquePersonalData($company->id, $data);
 
         $resumeToken = Str::random(64);
+        $manager = $this->resolveManager($company->id, $referralCode);
 
-        $opening = DB::transaction(function () use ($company, $data, $resumeToken, $ip) {
+        $opening = DB::transaction(function () use ($company, $data, $resumeToken, $ip, $manager) {
             $opening = $this->repository->create([
                 ...$data,
                 'uuid' => (string) Str::uuid(),
@@ -60,10 +62,12 @@ class AccountOpeningService
                 'status' => AccountOpening::STATUS_DRAFT,
                 'current_step' => 2,
                 'submitted_via' => AccountOpening::SUBMITTED_VIA_WHITELABEL,
+                'manager_id' => $manager?->id,
             ]);
 
             $this->repository->recordEvent($opening, AccountOpeningEvent::EVENT_CREATED, [
                 'company_id' => $company->id,
+                'manager_id' => $manager?->id,
             ], ip: $ip);
 
             return $opening;
@@ -93,9 +97,13 @@ class AccountOpeningService
         $data = $this->normalizePersonalData($data);
         $this->ensureUniquePersonalData($companyId, $data);
 
-        return DB::transaction(function () use ($data, $companyId, $files, $creator, $ip) {
+        $coords = $this->geocoding->locate($data);
+
+        return DB::transaction(function () use ($data, $companyId, $files, $creator, $ip, $coords) {
             $opening = $this->repository->create([
                 ...$data,
+                'latitude' => $coords['latitude'] ?? null,
+                'longitude' => $coords['longitude'] ?? null,
                 'uuid' => (string) Str::uuid(),
                 'resume_token_hash' => hash('sha256', Str::random(64)),
                 'company_id' => $companyId,
@@ -230,8 +238,13 @@ class AccountOpeningService
         $data['zip_code'] = preg_replace('/\D/', '', $data['zip_code']);
         $data['state'] = strtoupper($data['state']);
 
+        // Geolocalização para o mapa (dado complementar: falha não bloqueia)
+        $coords = $this->geocoding->locate($data);
+
         $opening = $this->repository->update($opening, [
             ...$data,
+            'latitude' => $coords['latitude'] ?? null,
+            'longitude' => $coords['longitude'] ?? null,
             'current_step' => max($opening->current_step, 3),
         ]);
         $this->repository->recordEvent($opening, AccountOpeningEvent::EVENT_ADDRESS_UPDATED, ip: $ip);
@@ -423,6 +436,27 @@ class AccountOpeningService
      | Internos
      |------------------------------------------------------------------
      */
+
+    /**
+     * Resolve o gerente comercial pelo código de indicação do link/QR.
+     * O código só vale se pertencer a um gerente ativo **da mesma empresa**
+     * do domínio — impede que um link vincule cliente em outro whitelabel.
+     */
+    private function resolveManager(int $companyId, ?string $referralCode): ?User
+    {
+        $code = strtoupper(trim((string) $referralCode));
+
+        if ($code === '') {
+            return null;
+        }
+
+        return User::query()
+            ->where('referral_code', $code)
+            ->where('role', User::ROLE_COMPANY_MANAGER)
+            ->where('company_id', $companyId)
+            ->where('is_active', true)
+            ->first();
+    }
 
     private function normalizePersonalData(array $data): array
     {

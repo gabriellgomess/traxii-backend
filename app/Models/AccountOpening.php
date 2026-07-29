@@ -10,9 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'uuid', 'resume_token_hash', 'company_id', 'status', 'current_step', 'submitted_via',
-    'created_by', 'full_name', 'email', 'password', 'cpf', 'document_type',
+    'created_by', 'manager_id', 'full_name', 'email', 'password', 'cpf', 'document_type',
     'document_number', 'document_issuer', 'document_issuer_uf', 'birth_date', 'phone',
     'zip_code', 'street', 'number', 'complement', 'neighborhood', 'city', 'state',
+    'latitude', 'longitude',
     'liveness_completed_at', 'liveness_challenges', 'terms_accepted_at',
     'privacy_accepted_at', 'truthfulness_accepted_at', 'acceptance_ip',
     'submitted_at', 'reviewed_at', 'reviewed_by', 'rejection_reason',
@@ -59,6 +60,8 @@ class AccountOpening extends Model
             'truthfulness_accepted_at' => 'datetime',
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
+            'latitude' => 'float',
+            'longitude' => 'float',
         ];
     }
 
@@ -98,6 +101,12 @@ class AccountOpening extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /** Gerente comercial que indicou o cliente (link/QR). */
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
     }
 
     /** O proponente só pode alterar dados enquanto o cadastro não foi enviado. */

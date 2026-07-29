@@ -18,9 +18,9 @@ class DatabaseSeeder extends Seeder
     {
         // Super admin (troque a senha em produção via SEED_ADMIN_PASSWORD)
         User::query()->updateOrCreate(
-            ['email' => 'admin@traxiinvest.com'],
+            ['email' => 'admin@percapital.com.br'],
             [
-                'name' => 'Administrador Traxii',
+                'name' => 'Administrador Percapital',
                 'password' => env('SEED_ADMIN_PASSWORD', 'password'),
                 'role' => User::ROLE_SUPER_ADMIN,
                 'company_id' => null,

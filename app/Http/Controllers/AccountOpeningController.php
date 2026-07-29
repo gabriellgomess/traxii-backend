@@ -27,9 +27,10 @@ class AccountOpeningController extends Controller
     public function store(StoreAccountOpeningRequest $request): JsonResponse
     {
         $result = $this->service->start(
-            $request->safe()->except(['domain']),
+            $request->safe()->except(['domain', 'ref']),
             $request->validated('domain'),
             $request->ip(),
+            $request->validated('ref'),
         );
 
         return response()->json([

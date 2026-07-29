@@ -20,6 +20,8 @@ class StoreAccountOpeningRequest extends FormRequest
             ...$this->personalDataRules(),
             // Domínio onde a dist whitelabel está instalada (resolve o tenant)
             'domain' => ['nullable', 'string', 'max:255'],
+            // Código de indicação do gerente comercial (link/QR)
+            'ref' => ['nullable', 'string', 'max:12'],
         ];
     }
 

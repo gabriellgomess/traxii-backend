@@ -5,6 +5,7 @@ use App\Http\Controllers\AccountOpeningPendencyController;
 use App\Http\Controllers\AccountOpeningReviewController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,12 +52,26 @@ Route::prefix('public/account-openings')->group(function () {
 */
 
 Route::middleware('auth:sanctum')->group(function () {
+    // Sempre disponíveis: sessão e troca da senha provisória
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+});
 
+// Demais rotas exigem que a senha provisória já tenha sido trocada
+Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     // Gestão de empresas (whitelabel) — somente super admin
     Route::middleware('role:super_admin')->group(function () {
         Route::apiResource('companies', CompanyController::class);
+    });
+
+    // Usuários — escopo por papel dentro do controller
+    Route::middleware('role:super_admin,company_admin')->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
+        Route::post('/users', [UserController::class, 'store']);
+        Route::put('/users/{user}', [UserController::class, 'update']);
+        Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
+        Route::delete('/users/{user}', [UserController::class, 'destroy']);
     });
 
     // Backoffice de aberturas de conta — escopo por papel dentro do controller

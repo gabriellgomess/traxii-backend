@@ -17,8 +17,11 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Backoffice de aberturas de conta (app Gestor).
- * super_admin enxerga todas as empresas; usuários de empresa, só a própria.
+ * Backoffice de aberturas de conta.
+ *
+ * Escopo de leitura: master/analista (Percapital) veem todas as empresas;
+ * admin do whitelabel vê a própria empresa; gerente vê só as propostas que
+ * vieram do seu link. Escrita (decisões) é exclusiva de master e analistas.
  */
 class AccountOpeningReviewController extends Controller
 {
@@ -30,6 +33,8 @@ class AccountOpeningReviewController extends Controller
     /** POST /api/account-openings — cadastro manual pelo backoffice */
     public function store(BackofficeStoreRequest $request): JsonResponse
     {
+        $this->authorizeReview($request);
+
         $user = $request->user();
         $validated = $request->validated();
 
@@ -74,7 +79,7 @@ class AccountOpeningReviewController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = $this->scopedQuery($request)
-            ->with(['company:id,name', 'reviewer:id,name'])
+            ->with(['company:id,name', 'reviewer:id,name', 'manager:id,name'])
             ->orderByRaw('COALESCE(submitted_at, created_at) DESC');
 
         if ($status = $request->query('status')) {
@@ -83,8 +88,13 @@ class AccountOpeningReviewController extends Controller
             $query->whereNot('status', AccountOpening::STATUS_DRAFT);
         }
 
-        if ($request->user()->isSuperAdmin() && ($companyId = $request->query('company_id'))) {
+        if ($request->user()->hasGlobalScope() && ($companyId = $request->query('company_id'))) {
             $query->where('company_id', $companyId);
+        }
+
+        // Filtro por gerente comercial (master/analista e admin do whitelabel)
+        if (! $request->user()->isManager() && ($managerId = $request->query('manager_id'))) {
+            $query->where('manager_id', $managerId);
         }
 
         if ($search = trim((string) $request->query('search', ''))) {
@@ -129,6 +139,7 @@ class AccountOpeningReviewController extends Controller
             'pendencies' => fn ($q) => $q->with('creator:id,name')->orderByDesc('id'),
             'reviewer:id,name',
             'creator:id,name',
+            'manager:id,name,email,referral_code',
         ]);
 
         return response()->json(['data' => $opening]);
@@ -159,6 +170,7 @@ class AccountOpeningReviewController extends Controller
     public function startAnalysis(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
 
         return response()->json([
             'data' => $this->service->startAnalysis($opening, $request->user(), $request->ip()),
@@ -169,6 +181,7 @@ class AccountOpeningReviewController extends Controller
     public function approve(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
 
         return response()->json([
             'data' => $this->service->approve($opening, $request->user(), $request->ip()),
@@ -179,6 +192,7 @@ class AccountOpeningReviewController extends Controller
     public function reject(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
 
         $data = $request->validate(
             ['reason' => ['required', 'string', 'max:1000']],
@@ -194,6 +208,7 @@ class AccountOpeningReviewController extends Controller
     public function createPendency(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
 
         $data = $request->validate([
             'items' => ['required', 'array', 'min:1'],
@@ -223,6 +238,7 @@ class AccountOpeningReviewController extends Controller
     public function resumeAnalysis(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
 
         return response()->json([
             'data' => $this->service->resumeAnalysis($opening, $request->user(), $request->ip()),
@@ -233,6 +249,7 @@ class AccountOpeningReviewController extends Controller
     public function block(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
         $data = $request->validate(['reason' => ['nullable', 'string', 'max:1000']]);
 
         return response()->json([
@@ -244,6 +261,7 @@ class AccountOpeningReviewController extends Controller
     public function unblock(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
 
         return response()->json([
             'data' => $this->service->unblock($opening, $request->user(), $request->ip()),
@@ -254,6 +272,7 @@ class AccountOpeningReviewController extends Controller
     public function deactivate(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
         $data = $request->validate(['reason' => ['nullable', 'string', 'max:1000']]);
 
         return response()->json([
@@ -265,6 +284,7 @@ class AccountOpeningReviewController extends Controller
     public function reactivate(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
 
         return response()->json([
             'data' => $this->service->reactivate($opening, $request->user(), $request->ip()),
@@ -275,6 +295,7 @@ class AccountOpeningReviewController extends Controller
     public function destroy(Request $request, AccountOpening $opening): JsonResponse
     {
         $this->authorizeOpening($request, $opening);
+        $this->authorizeReview($request);
 
         $this->service->delete($opening);
 
@@ -287,20 +308,50 @@ class AccountOpeningReviewController extends Controller
         $user = $request->user();
         $query = AccountOpening::query();
 
-        if (! $user->isSuperAdmin()) {
-            // company_id null (usuário mal configurado) não enxerga nada
-            $query->where('company_id', $user->company_id ?? -1);
+        // Percapital (master/analista) enxerga todas as empresas
+        if ($user->hasGlobalScope()) {
+            return $query;
         }
 
-        return $query;
+        // Gerente comercial: apenas as propostas indicadas por ele
+        if ($user->isManager()) {
+            return $query->where('manager_id', $user->id);
+        }
+
+        // Whitelabel: apenas a própria empresa
+        // (company_id null em usuário mal configurado não enxerga nada)
+        return $query->where('company_id', $user->company_id ?? -1);
     }
 
     private function authorizeOpening(Request $request, AccountOpening $opening): void
     {
         $user = $request->user();
 
-        if (! $user->isSuperAdmin() && $opening->company_id !== $user->company_id) {
+        if ($user->hasGlobalScope()) {
+            return;
+        }
+
+        if ($user->isManager()) {
+            if ($opening->manager_id !== $user->id) {
+                abort(403, 'Você não tem acesso a este cadastro.');
+            }
+
+            return;
+        }
+
+        if ($opening->company_id !== $user->company_id) {
             abort(403, 'Você não tem acesso a este cadastro.');
+        }
+    }
+
+    /**
+     * Decisões sobre a proposta são exclusivas da Percapital (master e
+     * analistas). Whitelabel e gerentes têm acesso somente leitura.
+     */
+    private function authorizeReview(Request $request): void
+    {
+        if (! $request->user()->canReviewOpenings()) {
+            abort(403, 'Apenas a Percapital pode alterar propostas.');
         }
     }
 }

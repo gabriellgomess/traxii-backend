@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -23,6 +24,12 @@ class AuthController extends Controller
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Credenciais inválidas.'],
+            ]);
+        }
+
+        if (! $user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['Este acesso está desativado. Fale com o administrador.'],
             ]);
         }
 
@@ -48,6 +55,51 @@ class AuthController extends Controller
         return response()->json(['user' => $this->userPayload($request->user())]);
     }
 
+    /**
+     * POST /api/auth/change-password
+     * Usado tanto na troca obrigatória da senha provisória quanto na troca
+     * voluntária. Ao concluir, todos os outros tokens são revogados.
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+        ], [
+            'current_password.required' => 'Informe a senha atual.',
+            'password.required' => 'Informe a nova senha.',
+            'password.confirmed' => 'A confirmação da nova senha não confere.',
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Senha atual incorreta.'],
+            ]);
+        }
+
+        if (Hash::check($data['password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'password' => ['A nova senha deve ser diferente da atual.'],
+            ]);
+        }
+
+        $user->forceFill([
+            'password' => $data['password'],
+            'must_change_password' => false,
+        ])->save();
+
+        // Mantém apenas o token atual: derruba sessões abertas com a senha antiga
+        $current = $user->currentAccessToken();
+        $user->tokens()->where('id', '!=', $current->id)->delete();
+
+        return response()->json([
+            'message' => 'Senha alterada com sucesso.',
+            'user' => $this->userPayload($user),
+        ]);
+    }
+
     private function userPayload(User $user): array
     {
         $user->load('company');
@@ -59,6 +111,8 @@ class AuthController extends Controller
             'role' => $user->role,
             'company_id' => $user->company_id,
             'company' => $user->company?->toTheme(),
+            'must_change_password' => (bool) $user->must_change_password,
+            'referral_code' => $user->referral_code,
         ];
     }
 }

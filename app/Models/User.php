@@ -8,20 +8,37 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'role', 'company_id'])]
+#[Fillable([
+    'name', 'email', 'password', 'role', 'company_id', 'document', 'document_type',
+    'phone', 'zip_code', 'street', 'number', 'complement', 'neighborhood', 'city',
+    'state', 'latitude', 'longitude', 'referral_code', 'must_change_password', 'is_active',
+])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
+    /** Percapital: administra a plataforma inteira. */
     public const ROLE_SUPER_ADMIN = 'super_admin';
+
+    /** Percapital: analisa e decide propostas de qualquer whitelabel. */
+    public const ROLE_ANALYST = 'analyst';
+
+    /** Whitelabel: administra a própria empresa e seus gerentes. */
     public const ROLE_COMPANY_ADMIN = 'company_admin';
+
+    /** Whitelabel: gerente comercial, dono de indicações (link/QR). */
+    public const ROLE_COMPANY_MANAGER = 'company_manager';
+
+    /** @deprecated mantido por compatibilidade com registros antigos */
     public const ROLE_COMPANY_OPERATOR = 'company_operator';
 
     /**
@@ -34,6 +51,10 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'latitude' => 'float',
+            'longitude' => 'float',
+            'must_change_password' => 'boolean',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -42,8 +63,56 @@ class User extends Authenticatable
         return $this->belongsTo(Company::class);
     }
 
+    /** Propostas indicadas por este gerente. */
+    public function referredOpenings(): HasMany
+    {
+        return $this->hasMany(AccountOpening::class, 'manager_id');
+    }
+
+    /* -----------------------------------------------------------------
+     | Papéis e permissões
+     |------------------------------------------------------------------
+     */
+
     public function isSuperAdmin(): bool
     {
         return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    public function isAnalyst(): bool
+    {
+        return $this->role === self::ROLE_ANALYST;
+    }
+
+    public function isCompanyAdmin(): bool
+    {
+        return $this->role === self::ROLE_COMPANY_ADMIN;
+    }
+
+    public function isManager(): bool
+    {
+        return $this->role === self::ROLE_COMPANY_MANAGER;
+    }
+
+    /** Enxerga dados de todas as empresas (Percapital). */
+    public function hasGlobalScope(): bool
+    {
+        return $this->isSuperAdmin() || $this->isAnalyst();
+    }
+
+    /** Pode decidir propostas (aprovar, reprovar, pendência, excluir). */
+    public function canReviewOpenings(): bool
+    {
+        return $this->isSuperAdmin() || $this->isAnalyst();
+    }
+
+    /** Gera um código de indicação único e curto para o gerente. */
+    public static function generateReferralCode(): string
+    {
+        do {
+            $code = strtoupper(Str::random(8));
+        } while (static::query()->where('referral_code', $code)->exists());
+
+        return $code;
     }
 }
