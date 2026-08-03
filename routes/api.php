@@ -5,6 +5,7 @@ use App\Http\Controllers\AccountOpeningPendencyController;
 use App\Http\Controllers\AccountOpeningReviewController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\MapController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -75,6 +76,9 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/users/{user}/activate', [UserController::class, 'activate']);
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
     });
+
+    // Pontos do mapa (clientes e gerentes) — escopo por papel no controller
+    Route::get('/map-points', [MapController::class, 'index']);
 
     // Backoffice de aberturas de conta — escopo por papel dentro do controller
     Route::prefix('account-openings')->group(function () {
