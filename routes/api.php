@@ -71,6 +71,8 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/users', [UserController::class, 'store']);
         Route::put('/users/{user}', [UserController::class, 'update']);
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
+        Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate']);
+        Route::post('/users/{user}/activate', [UserController::class, 'activate']);
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
     });
 

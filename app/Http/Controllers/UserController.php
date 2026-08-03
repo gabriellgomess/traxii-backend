@@ -149,8 +149,8 @@ class UserController extends Controller
         ]);
     }
 
-    /** DELETE /api/users/{user} — desativa (mantém histórico) */
-    public function destroy(Request $request, User $user): JsonResponse
+    /** POST /api/users/{user}/deactivate — bloqueia o acesso, mantém histórico */
+    public function deactivate(Request $request, User $user): JsonResponse
     {
         $this->assertCanManageUser($request->user(), $user);
 
@@ -158,6 +158,45 @@ class UserController extends Controller
         $user->tokens()->delete();
 
         return response()->json(['message' => 'Acesso desativado.']);
+    }
+
+    /** POST /api/users/{user}/activate */
+    public function activate(Request $request, User $user): JsonResponse
+    {
+        $this->assertCanManageUser($request->user(), $user);
+
+        $user->update(['is_active' => true]);
+
+        return response()->json(['message' => 'Acesso reativado.']);
+    }
+
+    /**
+     * DELETE /api/users/{user} — exclusão definitiva.
+     *
+     * Gerente com clientes indicados não pode ser excluído: as propostas
+     * perderiam o vínculo (manager_id vira null) e a origem comercial se
+     * perderia. Nesse caso, o caminho é desativar.
+     */
+    public function destroy(Request $request, User $user): JsonResponse
+    {
+        $this->assertCanManageUser($request->user(), $user);
+
+        $clients = $user->referredOpenings()->count();
+
+        if ($clients > 0) {
+            throw ValidationException::withMessages([
+                'user' => [
+                    'Este gerente possui '.$clients.' '.
+                    ($clients === 1 ? 'cliente vinculado' : 'clientes vinculados').
+                    ' e não pode ser excluído. Desative o acesso para bloquear novos cadastros.',
+                ],
+            ]);
+        }
+
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json(['message' => 'Usuário excluído definitivamente.']);
     }
 
     /* -----------------------------------------------------------------
