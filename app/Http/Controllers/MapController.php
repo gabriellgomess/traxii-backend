@@ -74,10 +74,25 @@ class MapController extends Controller
                 'lng' => (float) $m->longitude,
             ]);
 
+        /* -------- Quantos ficaram de fora por falta de coordenadas -------- */
+
+        $missingQuery = AccountOpening::query()
+            ->whereNull('latitude')
+            ->whereNot('status', AccountOpening::STATUS_DRAFT);
+
+        if ($user->isManager()) {
+            $missingQuery->where('manager_id', $user->id);
+        } elseif (! $user->seesAllCompanies()) {
+            $missingQuery->where('company_id', $user->company_id ?? -1);
+        } elseif ($companyId = $request->query('company_id')) {
+            $missingQuery->where('company_id', $companyId);
+        }
+
         return response()->json([
             'data' => [
                 'clients' => $clients,
                 'managers' => $managers,
+                'clients_without_location' => $missingQuery->count(),
             ],
         ]);
     }
