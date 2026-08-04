@@ -72,7 +72,12 @@ O link de resolução da pendência usa o domínio cadastrado da empresa
 na criação da pendência, para envio manual enquanto o e-mail está desativado.
 
 > Migrations pendentes: `php artisan migrate --force`
-> (tabela `account_opening_pendencies`, coluna `companies.banner_path`).
+> (tabela `account_opening_pendencies`, `companies.banner_path`, campos de
+> perfil em `users`, `manager_id`/geo em `account_openings`, dados cadastrais
+> e geo em `companies`).
+>
+> Depois de migrar, para preencher coordenadas de registros antigos:
+> `php artisan geo:backfill`
 
 ## Papéis (coluna `users.role`)
 

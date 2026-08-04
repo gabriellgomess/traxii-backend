@@ -8,7 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'domain', 'primary_color', 'secondary_color', 'logo_path', 'banner_path', 'is_active'])]
+#[Fillable([
+    'name', 'legal_name', 'document', 'domain', 'email', 'phone',
+    'primary_color', 'secondary_color', 'logo_path', 'banner_path', 'is_active',
+    'zip_code', 'street', 'number', 'complement', 'neighborhood', 'city', 'state',
+    'latitude', 'longitude',
+])]
 class Company extends Model
 {
     protected $appends = ['logo_url', 'banner_url'];
@@ -17,6 +22,8 @@ class Company extends Model
     {
         return [
             'is_active' => 'boolean',
+            'latitude' => 'float',
+            'longitude' => 'float',
         ];
     }
 

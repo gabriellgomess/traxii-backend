@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
+use App\Rules\Cnpj;
+use App\Services\GeocodingService;
+use App\Support\BrazilianStates;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -11,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class CompanyController extends Controller
 {
+    public function __construct(private readonly GeocodingService $geocoding) {}
+
     /** GET /api/companies */
     public function index(): JsonResponse
     {
@@ -20,7 +25,7 @@ class CompanyController extends Controller
     /** POST /api/companies */
     public function store(Request $request): JsonResponse
     {
-        $data = $this->validated($request);
+        $data = $this->withGeo($this->validated($request));
 
         if ($request->hasFile('logo')) {
             $data['logo_path'] = $request->file('logo')->store('logos', 'public');
@@ -44,7 +49,7 @@ class CompanyController extends Controller
     /** PUT/PATCH /api/companies/{company} (multipart com _method) */
     public function update(Request $request, Company $company): JsonResponse
     {
-        $data = $this->validated($request, $company);
+        $data = $this->withGeo($this->validated($request, $company));
 
         if ($request->boolean('remove_logo') && $company->logo_path) {
             Storage::disk('public')->delete($company->logo_path);
@@ -135,6 +140,28 @@ class CompanyController extends Controller
         return response()->json(['data' => $company?->toTheme()]);
     }
 
+    /** Normaliza documento/telefone e resolve lat/long a partir do endereço. */
+    private function withGeo(array $data): array
+    {
+        foreach (['document', 'phone', 'zip_code'] as $field) {
+            if (isset($data[$field])) {
+                $data[$field] = preg_replace('/\D/', '', (string) $data[$field]) ?: null;
+            }
+        }
+
+        if (isset($data['state'])) {
+            $data['state'] = strtoupper((string) $data['state']);
+        }
+
+        if (! empty($data['zip_code'])) {
+            $coords = $this->geocoding->locate($data);
+            $data['latitude'] = $coords['latitude'] ?? null;
+            $data['longitude'] = $coords['longitude'] ?? null;
+        }
+
+        return $data;
+    }
+
     private function validated(Request $request, ?Company $company = null): array
     {
         return $request->validate([
@@ -148,6 +175,17 @@ class CompanyController extends Controller
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'is_active' => ['sometimes', 'boolean'],
+            'legal_name' => ['nullable', 'string', 'max:150'],
+            'document' => ['nullable', 'string', new Cnpj],
+            'email' => ['nullable', 'email:rfc', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'zip_code' => ['nullable', 'string', 'regex:/^\d{5}-?\d{3}$/'],
+            'street' => ['nullable', 'string', 'max:150'],
+            'number' => ['nullable', 'string', 'max:10'],
+            'complement' => ['nullable', 'string', 'max:100'],
+            'neighborhood' => ['nullable', 'string', 'max:100'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'state' => ['nullable', 'string', Rule::in(BrazilianStates::UFS)],
             'logo' => ['nullable', 'image', 'max:2048'],
             'remove_logo' => ['sometimes', 'boolean'],
             'banner' => ['nullable', 'image', 'max:5120'],
@@ -155,6 +193,8 @@ class CompanyController extends Controller
         ], [
             'name.required' => 'Informe o nome da empresa.',
             'domain.unique' => 'Este domínio já está em uso por outra empresa.',
+            'zip_code.regex' => 'CEP inválido (use 00000-000).',
+            'state.in' => 'Estado inválido.',
             'primary_color.regex' => 'Cor primária inválida (use #RRGGBB).',
             'secondary_color.regex' => 'Cor secundária inválida (use #RRGGBB).',
             'logo.image' => 'O logotipo deve ser uma imagem.',
