@@ -37,6 +37,11 @@ class Company extends Model
         return $this->hasMany(AccountOpening::class);
     }
 
+    public function commissions(): HasMany
+    {
+        return $this->hasMany(Commission::class);
+    }
+
     protected function logoUrl(): Attribute
     {
         return Attribute::get(

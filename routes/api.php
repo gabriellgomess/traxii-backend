@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountOpeningController;
 use App\Http\Controllers\AccountOpeningPendencyController;
 use App\Http\Controllers\AccountOpeningReviewController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\MapController;
 use App\Http\Controllers\UserController;
@@ -75,6 +76,11 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate']);
         Route::post('/users/{user}/activate', [UserController::class, 'activate']);
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
+    });
+
+    // Comissões — cadastradas pelo admin do whitelabel, no painel comercial
+    Route::middleware('role:company_admin')->group(function () {
+        Route::apiResource('commissions', CommissionController::class);
     });
 
     // Pontos do mapa (clientes e gerentes) — escopo por papel no controller
