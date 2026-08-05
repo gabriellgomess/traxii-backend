@@ -31,7 +31,7 @@ class UserController extends Controller
         $user = $request->user();
 
         $query = User::query()
-            ->with('company:id,name')
+            ->with(['company:id,name', 'parentManager:id,name'])
             ->whereNot('id', $user->id)
             ->orderBy('name');
 
@@ -83,6 +83,13 @@ class UserController extends Controller
             'is_active' => true,
         ];
 
+        if ($role === User::ROLE_COMPANY_MANAGER) {
+            $attributes['parent_manager_id'] = $this->resolveParentManager(
+                companyId: (int) $companyId,
+                parentManagerId: isset($data['parent_manager_id']) ? (int) $data['parent_manager_id'] : null,
+            );
+        }
+
         $attributes['document_type'] = $attributes['document']
             ? (strlen($attributes['document']) === 14 ? 'cnpj' : 'cpf')
             : null;
@@ -94,7 +101,7 @@ class UserController extends Controller
         $user = User::query()->create($attributes);
 
         return response()->json([
-            'data' => $user->load('company:id,name'),
+            'data' => $user->load(['company:id,name', 'parentManager:id,name']),
             // Exibido uma única vez ao criador (envio por e-mail ainda desativado)
             'temporary_password' => $temporaryPassword,
         ], 201);
@@ -124,9 +131,20 @@ class UserController extends Controller
             $attributes['is_active'] = $request->boolean('is_active');
         }
 
+        if ($user->role === User::ROLE_COMPANY_MANAGER && $request->has('parent_manager_id')) {
+            $parentManagerId = $request->input('parent_manager_id');
+            $attributes['parent_manager_id'] = $this->resolveParentManager(
+                companyId: (int) $user->company_id,
+                parentManagerId: $parentManagerId !== null ? (int) $parentManagerId : null,
+                ignoreId: $user->id,
+            );
+        }
+
         $user->update($attributes);
 
-        return response()->json(['data' => $user->fresh()->load('company:id,name')]);
+        return response()->json([
+            'data' => $user->fresh()->load(['company:id,name', 'parentManager:id,name']),
+        ]);
     }
 
     /** POST /api/users/{user}/reset-password — nova senha provisória */
@@ -175,19 +193,29 @@ class UserController extends Controller
      *
      * Gerente com clientes indicados não pode ser excluído: as propostas
      * perderiam o vínculo (manager_id vira null) e a origem comercial se
-     * perderia. Nesse caso, o caminho é desativar.
+     * perderia. Gerente com subgerentes vinculados também não — eles
+     * ficariam órfãos na hierarquia. Em ambos os casos, o caminho é desativar.
      */
     public function destroy(Request $request, User $user): JsonResponse
     {
         $this->assertCanManageUser($request->user(), $user);
 
         $clients = $user->referredOpenings()->count();
+        $subManagers = $user->subManagers()->count();
 
-        if ($clients > 0) {
+        if ($clients > 0 || $subManagers > 0) {
+            $parts = [];
+            if ($clients > 0) {
+                $parts[] = $clients.' '.($clients === 1 ? 'cliente vinculado' : 'clientes vinculados');
+            }
+            if ($subManagers > 0) {
+                $parts[] = $subManagers.' '.
+                    ($subManagers === 1 ? 'subgerente vinculado' : 'subgerentes vinculados');
+            }
+
             throw ValidationException::withMessages([
                 'user' => [
-                    'Este gerente possui '.$clients.' '.
-                    ($clients === 1 ? 'cliente vinculado' : 'clientes vinculados').
+                    'Este gerente possui '.implode(' e ', $parts).
                     ' e não pode ser excluído. Desative o acesso para bloquear novos cadastros.',
                 ],
             ]);
@@ -229,6 +257,9 @@ class UserController extends Controller
                 'neighborhood' => ['required', 'string', 'max:100'],
                 'city' => ['required', 'string', 'max:100'],
                 'state' => ['required', 'string', Rule::in(BrazilianStates::UFS)],
+                // Presença/elegibilidade real (mesma empresa, gerente-topo)
+                // é resolvida em resolveParentManager(); aqui só o tipo.
+                'parent_manager_id' => ['nullable', 'integer'],
             ];
         }
 
@@ -276,6 +307,37 @@ class UserController extends Controller
             'latitude' => $coords['latitude'] ?? null,
             'longitude' => $coords['longitude'] ?? null,
         ];
+    }
+
+    /**
+     * Valida e resolve o gerente "pai" de um subgerente: precisa ser um
+     * gerente-topo (sem parent_manager_id próprio) da mesma empresa, e
+     * nunca pode ser o próprio usuário sendo criado/editado.
+     */
+    private function resolveParentManager(
+        int $companyId,
+        ?int $parentManagerId,
+        ?int $ignoreId = null,
+    ): ?int {
+        if ($parentManagerId === null) {
+            return null;
+        }
+
+        $parent = User::query()
+            ->where('id', $parentManagerId)
+            ->where('role', User::ROLE_COMPANY_MANAGER)
+            ->where('company_id', $companyId)
+            ->whereNull('parent_manager_id')
+            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+            ->first();
+
+        if (! $parent) {
+            throw ValidationException::withMessages([
+                'parent_manager_id' => ['Selecione um gerente válido da sua empresa.'],
+            ]);
+        }
+
+        return $parent->id;
     }
 
     private function generateTemporaryPassword(): string

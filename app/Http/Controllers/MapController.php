@@ -56,7 +56,8 @@ class MapController extends Controller
             ->with('company:id,name,primary_color');
 
         if ($user->isManager()) {
-            $managersQuery->where('id', $user->id);
+            // Gerente-topo também vê seus subgerentes no mapa
+            $managersQuery->whereIn('id', $user->visibleManagerIds());
         } else {
             $this->applyScope($managersQuery, $user, $companyFilter);
         }
@@ -131,7 +132,7 @@ class MapController extends Controller
         ?string $managerColumn = null,
     ): void {
         if ($user->isManager() && $managerColumn) {
-            $query->where($managerColumn, $user->id);
+            $query->whereIn($managerColumn, $user->visibleManagerIds());
 
             return;
         }

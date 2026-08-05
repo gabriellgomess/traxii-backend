@@ -313,9 +313,10 @@ class AccountOpeningReviewController extends Controller
             return $query;
         }
 
-        // Gerente comercial: apenas as propostas indicadas por ele
+        // Gerente comercial: propostas indicadas por ele e, se for gerente
+        // "topo" na hierarquia, também as indicadas pelos seus subgerentes
         if ($user->isManager()) {
-            return $query->where('manager_id', $user->id);
+            return $query->whereIn('manager_id', $user->visibleManagerIds());
         }
 
         // Whitelabel: apenas a própria empresa
@@ -332,7 +333,7 @@ class AccountOpeningReviewController extends Controller
         }
 
         if ($user->isManager()) {
-            if ($opening->manager_id !== $user->id) {
+            if (! in_array($opening->manager_id, $user->visibleManagerIds(), true)) {
                 abort(403, 'Você não tem acesso a este cadastro.');
             }
 

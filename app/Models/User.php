@@ -12,13 +12,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
-
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
-    'name', 'email', 'password', 'role', 'company_id', 'document', 'document_type',
-    'phone', 'zip_code', 'street', 'number', 'complement', 'neighborhood', 'city',
-    'state', 'latitude', 'longitude', 'referral_code', 'must_change_password', 'is_active',
+    'name', 'email', 'password', 'role', 'company_id', 'parent_manager_id', 'document',
+    'document_type', 'phone', 'zip_code', 'street', 'number', 'complement', 'neighborhood',
+    'city', 'state', 'latitude', 'longitude', 'referral_code', 'must_change_password', 'is_active',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -69,6 +68,18 @@ class User extends Authenticatable
         return $this->hasMany(AccountOpening::class, 'manager_id');
     }
 
+    /** Gerente "acima" na hierarquia, quando este usuário é um subgerente. */
+    public function parentManager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'parent_manager_id');
+    }
+
+    /** Subgerentes vinculados a este gerente. */
+    public function subManagers(): HasMany
+    {
+        return $this->hasMany(User::class, 'parent_manager_id');
+    }
+
     /* -----------------------------------------------------------------
      | Papéis e permissões
      |------------------------------------------------------------------
@@ -92,6 +103,28 @@ class User extends Authenticatable
     public function isManager(): bool
     {
         return $this->role === self::ROLE_COMPANY_MANAGER;
+    }
+
+    /** Gerente vinculado a outro gerente acima na hierarquia. */
+    public function isSubManager(): bool
+    {
+        return $this->isManager() && $this->parent_manager_id !== null;
+    }
+
+    /**
+     * IDs de gerente que este usuário pode enxerga ao filtrar contas/mapa:
+     * um gerente-topo vê a si mesmo e seus subgerentes; um subgerente só
+     * vê a si mesmo (hierarquia de 2 níveis, sem subgerente de subgerente).
+     *
+     * @return array<int>
+     */
+    public function visibleManagerIds(): array
+    {
+        if ($this->isSubManager()) {
+            return [$this->id];
+        }
+
+        return [$this->id, ...$this->subManagers()->pluck('id')->all()];
     }
 
     /**
