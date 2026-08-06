@@ -64,13 +64,14 @@ class MapController extends Controller
 
         $managers = $managersQuery
             ->withCount('referredOpenings')
-            ->get(['id', 'name', 'city', 'state', 'is_active', 'latitude', 'longitude', 'company_id'])
+            ->get(['id', 'name', 'city', 'state', 'is_active', 'latitude', 'longitude', 'company_id', 'parent_manager_id'])
             ->map(fn (User $m) => [
                 'id' => $m->id,
                 'name' => $m->name,
                 'city' => trim(($m->city ?? '').($m->state ? '/'.$m->state : ''), '/'),
                 'clients' => $m->referred_openings_count,
                 'is_active' => (bool) $m->is_active,
+                'is_submanager' => $m->parent_manager_id !== null,
                 'company_id' => $m->company_id,
                 'company' => $m->company?->name,
                 'company_color' => $m->company?->primary_color,
