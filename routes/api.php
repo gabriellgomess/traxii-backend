@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountCategoryController;
 use App\Http\Controllers\AccountOpeningController;
 use App\Http\Controllers\AccountOpeningPendencyController;
 use App\Http\Controllers\AccountOpeningReviewController;
@@ -83,6 +84,11 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     Route::middleware('role:company_admin')->group(function () {
         Route::apiResource('products', ProductController::class);
         Route::apiResource('commissions', CommissionController::class);
+    });
+
+    // Categorias de conta — tela experimental; remover se não for mantida
+    Route::middleware('role:company_admin')->group(function () {
+        Route::apiResource('account-categories', AccountCategoryController::class);
     });
 
     // Pontos do mapa (clientes e gerentes) — escopo por papel no controller
