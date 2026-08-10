@@ -19,6 +19,7 @@ class CommissionController extends Controller
     {
         $commissions = Commission::query()
             ->where('company_id', $request->user()->company_id)
+            ->with('product:id,operation')
             ->orderBy('name')
             ->get();
 
@@ -41,7 +42,7 @@ class CommissionController extends Controller
     {
         $this->assertOwnedByAuthor($request, $commission);
 
-        return response()->json(['data' => $commission]);
+        return response()->json(['data' => $commission->load('product:id,operation')]);
     }
 
     /** PUT/PATCH /api/commissions/{commission} */
@@ -51,7 +52,7 @@ class CommissionController extends Controller
 
         $commission->update($this->validated($request, $commission));
 
-        return response()->json(['data' => $commission->refresh()]);
+        return response()->json(['data' => $commission->refresh()->load('product:id,operation')]);
     }
 
     /** DELETE /api/commissions/{commission} */
@@ -82,11 +83,17 @@ class CommissionController extends Controller
                     ->where('company_id', $companyId)
                     ->ignore($commission?->id),
             ],
+            'product_id' => [
+                'required', 'integer',
+                Rule::exists('products', 'id')->where('company_id', $companyId),
+            ],
             'default_percentage' => ['required', 'numeric', 'between:0,100'],
             'default_amount' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
         ], [
             'name.required' => 'Informe o nome da comissão.',
             'name.unique' => 'Já existe uma comissão com este nome.',
+            'product_id.required' => 'Selecione o produto desta comissão.',
+            'product_id.exists' => 'Selecione um produto válido.',
             'default_percentage.required' => 'Informe a comissão padrão em %.',
             'default_percentage.between' => 'A comissão em % deve estar entre 0 e 100.',
             'default_amount.required' => 'Informe a comissão padrão em R$.',

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Commission;
 use App\Models\Company;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -17,6 +18,10 @@ class CommissionControllerTest extends TestCase
     private Company $companyB;
 
     private User $admin;
+
+    private Product $productA;
+
+    private Product $productB;
 
     protected function setUp(): void
     {
@@ -35,6 +40,13 @@ class CommissionControllerTest extends TestCase
             'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $this->companyA->id,
         ]);
+
+        $this->productA = Product::query()->create([
+            'company_id' => $this->companyA->id, 'operation' => 'CDB',
+        ]);
+        $this->productB = Product::query()->create([
+            'company_id' => $this->companyB->id, 'operation' => 'LCA',
+        ]);
     }
 
     private function actingAsAdmin(): static
@@ -49,16 +61,19 @@ class CommissionControllerTest extends TestCase
         $this->actingAsAdmin()
             ->postJson('/api/commissions', [
                 'name' => 'Padrão',
+                'product_id' => $this->productA->id,
                 'default_percentage' => 2.5,
                 'default_amount' => 50,
             ])
             ->assertCreated()
             ->assertJsonPath('data.name', 'Padrão')
+            ->assertJsonPath('data.product_id', $this->productA->id)
             ->assertJsonPath('data.default_percentage', '2.50')
             ->assertJsonPath('data.default_amount', '50.00');
 
         $this->assertDatabaseHas('commissions', [
             'company_id' => $this->companyA->id,
+            'product_id' => $this->productA->id,
             'name' => 'Padrão',
         ]);
     }
@@ -86,7 +101,20 @@ class CommissionControllerTest extends TestCase
         $this->actingAsAdmin()
             ->postJson('/api/commissions', [])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['name', 'default_percentage', 'default_amount']);
+            ->assertJsonValidationErrors(['name', 'product_id', 'default_percentage', 'default_amount']);
+    }
+
+    public function test_rejects_product_from_another_company(): void
+    {
+        $this->actingAsAdmin()
+            ->postJson('/api/commissions', [
+                'name' => 'Padrão',
+                'product_id' => $this->productB->id,
+                'default_percentage' => 2,
+                'default_amount' => 10,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('product_id');
     }
 
     public function test_rejects_percentage_above_100(): void
@@ -94,6 +122,7 @@ class CommissionControllerTest extends TestCase
         $this->actingAsAdmin()
             ->postJson('/api/commissions', [
                 'name' => 'Padrão',
+                'product_id' => $this->productA->id,
                 'default_percentage' => 150,
                 'default_amount' => 10,
             ])
@@ -106,6 +135,7 @@ class CommissionControllerTest extends TestCase
         $this->actingAsAdmin()
             ->postJson('/api/commissions', [
                 'name' => 'Padrão',
+                'product_id' => $this->productA->id,
                 'default_percentage' => 10,
                 'default_amount' => -5,
             ])
@@ -117,6 +147,7 @@ class CommissionControllerTest extends TestCase
     {
         Commission::query()->create([
             'company_id' => $this->companyA->id,
+            'product_id' => $this->productA->id,
             'name' => 'Padrão',
             'default_percentage' => 2,
             'default_amount' => 10,
@@ -125,6 +156,7 @@ class CommissionControllerTest extends TestCase
         $this->actingAsAdmin()
             ->postJson('/api/commissions', [
                 'name' => 'Padrão',
+                'product_id' => $this->productA->id,
                 'default_percentage' => 3,
                 'default_amount' => 20,
             ])
@@ -136,6 +168,7 @@ class CommissionControllerTest extends TestCase
     {
         Commission::query()->create([
             'company_id' => $this->companyB->id,
+            'product_id' => $this->productB->id,
             'name' => 'Padrão',
             'default_percentage' => 2,
             'default_amount' => 10,
@@ -144,6 +177,7 @@ class CommissionControllerTest extends TestCase
         $this->actingAsAdmin()
             ->postJson('/api/commissions', [
                 'name' => 'Padrão',
+                'product_id' => $this->productA->id,
                 'default_percentage' => 3,
                 'default_amount' => 20,
             ])
@@ -153,11 +187,11 @@ class CommissionControllerTest extends TestCase
     public function test_index_only_lists_commissions_of_own_company(): void
     {
         Commission::query()->create([
-            'company_id' => $this->companyA->id, 'name' => 'A1',
+            'company_id' => $this->companyA->id, 'product_id' => $this->productA->id, 'name' => 'A1',
             'default_percentage' => 1, 'default_amount' => 10,
         ]);
         Commission::query()->create([
-            'company_id' => $this->companyB->id, 'name' => 'B1',
+            'company_id' => $this->companyB->id, 'product_id' => $this->productB->id, 'name' => 'B1',
             'default_percentage' => 1, 'default_amount' => 10,
         ]);
 
@@ -165,19 +199,21 @@ class CommissionControllerTest extends TestCase
 
         $response->assertJsonCount(1, 'data');
         $response->assertJsonPath('data.0.name', 'A1');
+        $response->assertJsonPath('data.0.product.operation', 'CDB');
     }
 
     public function test_cannot_view_update_or_delete_commission_of_another_company(): void
     {
         $commission = Commission::query()->create([
-            'company_id' => $this->companyB->id, 'name' => 'B1',
+            'company_id' => $this->companyB->id, 'product_id' => $this->productB->id, 'name' => 'B1',
             'default_percentage' => 1, 'default_amount' => 10,
         ]);
 
         $this->actingAsAdmin()->getJson("/api/commissions/{$commission->id}")->assertNotFound();
         $this->actingAsAdmin()
             ->putJson("/api/commissions/{$commission->id}", [
-                'name' => 'Hackeado', 'default_percentage' => 1, 'default_amount' => 1,
+                'name' => 'Hackeado', 'product_id' => $this->productB->id,
+                'default_percentage' => 1, 'default_amount' => 1,
             ])
             ->assertNotFound();
         $this->actingAsAdmin()->deleteJson("/api/commissions/{$commission->id}")->assertNotFound();
@@ -188,13 +224,14 @@ class CommissionControllerTest extends TestCase
     public function test_updates_a_commission(): void
     {
         $commission = Commission::query()->create([
-            'company_id' => $this->companyA->id, 'name' => 'Padrão',
+            'company_id' => $this->companyA->id, 'product_id' => $this->productA->id, 'name' => 'Padrão',
             'default_percentage' => 2, 'default_amount' => 10,
         ]);
 
         $this->actingAsAdmin()
             ->putJson("/api/commissions/{$commission->id}", [
                 'name' => 'Padrão atualizado',
+                'product_id' => $this->productA->id,
                 'default_percentage' => 5,
                 'default_amount' => 25,
             ])
@@ -205,7 +242,7 @@ class CommissionControllerTest extends TestCase
     public function test_deletes_a_commission(): void
     {
         $commission = Commission::query()->create([
-            'company_id' => $this->companyA->id, 'name' => 'Padrão',
+            'company_id' => $this->companyA->id, 'product_id' => $this->productA->id, 'name' => 'Padrão',
             'default_percentage' => 2, 'default_amount' => 10,
         ]);
 
