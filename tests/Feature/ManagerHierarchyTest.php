@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\AccountOpening;
+use App\Models\Commission;
 use App\Models\Company;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -17,6 +19,8 @@ class ManagerHierarchyTest extends TestCase
 
     private User $companyAdmin;
 
+    private Commission $commission;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -29,6 +33,14 @@ class ManagerHierarchyTest extends TestCase
         $this->companyAdmin = User::factory()->create([
             'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $this->company->id,
+        ]);
+
+        $product = Product::query()->create([
+            'company_id' => $this->company->id, 'operation' => 'CDB',
+        ]);
+        $this->commission = Commission::query()->create([
+            'company_id' => $this->company->id, 'product_id' => $product->id,
+            'name' => 'Padrão', 'default_percentage' => 2, 'default_amount' => 10,
         ]);
     }
 
@@ -45,6 +57,7 @@ class ManagerHierarchyTest extends TestCase
             'neighborhood' => 'Bela Vista',
             'city' => 'São Paulo',
             'state' => 'SP',
+            'commission_id' => $this->commission->id,
         ], $overrides);
     }
 
@@ -192,6 +205,58 @@ class ManagerHierarchyTest extends TestCase
             ->assertJsonValidationErrors('user');
 
         $this->assertDatabaseHas('users', ['id' => $manager->id]);
+    }
+
+    public function test_rejects_manager_without_commission(): void
+    {
+        $this->actingAs($this->companyAdmin, 'sanctum')
+            ->postJson('/api/users', [
+                ...$this->managerPayload(['commission_id' => null]),
+                'role' => 'company_manager',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('commission_id');
+    }
+
+    public function test_rejects_commission_from_another_company(): void
+    {
+        $otherCompany = Company::query()->create([
+            'name' => 'Verde Pay', 'domain' => 'verdepay.com.br',
+            'primary_color' => '#0B8A5C', 'secondary_color' => '#FFC53D',
+        ]);
+        $otherProduct = Product::query()->create([
+            'company_id' => $otherCompany->id, 'operation' => 'LCA',
+        ]);
+        $otherCommission = Commission::query()->create([
+            'company_id' => $otherCompany->id, 'product_id' => $otherProduct->id,
+            'name' => 'Outra', 'default_percentage' => 1, 'default_amount' => 5,
+        ]);
+
+        $this->actingAs($this->companyAdmin, 'sanctum')
+            ->postJson('/api/users', [
+                ...$this->managerPayload(['commission_id' => $otherCommission->id]),
+                'role' => 'company_manager',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('commission_id');
+    }
+
+    public function test_creates_manager_with_commission_linked(): void
+    {
+        $response = $this->actingAs($this->companyAdmin, 'sanctum')
+            ->postJson('/api/users', [
+                ...$this->managerPayload(['email' => 'comissionado@example.com']),
+                'role' => 'company_manager',
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.commission.id', $this->commission->id)
+            ->assertJsonPath('data.commission.product.operation', 'CDB');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'comissionado@example.com',
+            'commission_id' => $this->commission->id,
+        ]);
     }
 
     private function makeOpening(int $managerId): AccountOpening

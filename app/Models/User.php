@@ -15,9 +15,10 @@ use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
-    'name', 'email', 'password', 'role', 'company_id', 'parent_manager_id', 'document',
-    'document_type', 'phone', 'zip_code', 'street', 'number', 'complement', 'neighborhood',
-    'city', 'state', 'latitude', 'longitude', 'referral_code', 'must_change_password', 'is_active',
+    'name', 'email', 'password', 'role', 'company_id', 'parent_manager_id', 'commission_id',
+    'document', 'document_type', 'phone', 'zip_code', 'street', 'number', 'complement',
+    'neighborhood', 'city', 'state', 'latitude', 'longitude', 'referral_code',
+    'must_change_password', 'is_active',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -78,6 +79,12 @@ class User extends Authenticatable
     public function subManagers(): HasMany
     {
         return $this->hasMany(User::class, 'parent_manager_id');
+    }
+
+    /** Comissão vinculada a este gerente. */
+    public function commission(): BelongsTo
+    {
+        return $this->belongsTo(Commission::class);
     }
 
     /* -----------------------------------------------------------------

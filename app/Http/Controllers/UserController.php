@@ -31,7 +31,7 @@ class UserController extends Controller
         $user = $request->user();
 
         $query = User::query()
-            ->with(['company:id,name', 'parentManager:id,name'])
+            ->with(['company:id,name', 'parentManager:id,name', 'commission:id,name,product_id', 'commission.product:id,operation'])
             ->whereNot('id', $user->id)
             ->orderBy('name');
 
@@ -88,6 +88,7 @@ class UserController extends Controller
                 companyId: (int) $companyId,
                 parentManagerId: isset($data['parent_manager_id']) ? (int) $data['parent_manager_id'] : null,
             );
+            $attributes['commission_id'] = (int) $data['commission_id'];
         }
 
         $attributes['document_type'] = $attributes['document']
@@ -101,7 +102,7 @@ class UserController extends Controller
         $user = User::query()->create($attributes);
 
         return response()->json([
-            'data' => $user->load(['company:id,name', 'parentManager:id,name']),
+            'data' => $user->load(['company:id,name', 'parentManager:id,name', 'commission.product:id,operation']),
             // Exibido uma única vez ao criador (envio por e-mail ainda desativado)
             'temporary_password' => $temporaryPassword,
         ], 201);
@@ -131,19 +132,23 @@ class UserController extends Controller
             $attributes['is_active'] = $request->boolean('is_active');
         }
 
-        if ($user->role === User::ROLE_COMPANY_MANAGER && $request->has('parent_manager_id')) {
-            $parentManagerId = $request->input('parent_manager_id');
-            $attributes['parent_manager_id'] = $this->resolveParentManager(
-                companyId: (int) $user->company_id,
-                parentManagerId: $parentManagerId !== null ? (int) $parentManagerId : null,
-                ignoreId: $user->id,
-            );
+        if ($user->role === User::ROLE_COMPANY_MANAGER) {
+            if ($request->has('parent_manager_id')) {
+                $parentManagerId = $request->input('parent_manager_id');
+                $attributes['parent_manager_id'] = $this->resolveParentManager(
+                    companyId: (int) $user->company_id,
+                    parentManagerId: $parentManagerId !== null ? (int) $parentManagerId : null,
+                    ignoreId: $user->id,
+                );
+            }
+
+            $attributes['commission_id'] = (int) $data['commission_id'];
         }
 
         $user->update($attributes);
 
         return response()->json([
-            'data' => $user->fresh()->load(['company:id,name', 'parentManager:id,name']),
+            'data' => $user->fresh()->load(['company:id,name', 'parentManager:id,name', 'commission.product:id,operation']),
         ]);
     }
 
@@ -260,6 +265,10 @@ class UserController extends Controller
                 // Presença/elegibilidade real (mesma empresa, gerente-topo)
                 // é resolvida em resolveParentManager(); aqui só o tipo.
                 'parent_manager_id' => ['nullable', 'integer'],
+                'commission_id' => [
+                    'required', 'integer',
+                    Rule::exists('commissions', 'id')->where('company_id', $request->user()->company_id),
+                ],
             ];
         }
 
@@ -280,6 +289,8 @@ class UserController extends Controller
             'city.required' => 'Informe a cidade.',
             'state.required' => 'Informe o estado.',
             'company_id.required' => 'Selecione a empresa (whitelabel).',
+            'commission_id.required' => 'Selecione a comissão deste gerente.',
+            'commission_id.exists' => 'Selecione uma comissão válida.',
         ]);
     }
 
